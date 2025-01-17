@@ -1,36 +1,199 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# 伊林SPA預約系統
 
-## Getting Started
+這是一個專為伊林SPA設計的線上預約系統，提供簡單舒適的預約體驗。
 
-First, run the development server:
+## 專案概述
 
-```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
-```
+- 前端框架: Next.js 14
+- UI框架: Tailwind CSS
+- 資料庫: PostgreSQL
+- 認證: NextAuth.js
+- API: RESTful API
+- 部署: Vercel
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+## 功能特色
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+### 會員系統
+- 會員註冊/登入
+- 個人資料管理
+- 預約紀錄查詢
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+### 預約系統
+- 服務項目瀏覽
+- 按摩師選擇
+- 時段預約
+- 預約管理
 
-## Learn More
+### 管理後台
+- 服務項目管理
+- 按摩師管理
+  - 基本資料管理
+  - 照片上傳與調整
+  - 服務項目關聯
+- 預約狀態管理
+- 會員管理
 
-To learn more about Next.js, take a look at the following resources:
+### 通知系統
+- 預約成功通知
+- 預約提醒通知
+- 狀態更新通知
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## 開發進度
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+### 已完成功能 (2024/01/15)
+- 按摩師管理功能優化
+  - [x] 照片上傳功能
+  - [x] 照片預覽與調整（縮放/位置）
+  - [x] 自我介紹欄位優化
+  - [x] 資料庫結構優化
+- 使用者介面改進
+  - [x] 按摩師列表頁面優化
+  - [x] 照片顯示優化
+  - [x] 表單驗證強化
+- 資料庫更新
+  - [x] 新增圖片調整相關欄位
+  - [x] 資料遷移完成
 
-## Deploy on Vercel
+### 已完成功能 (2024/01/14)
+- 專案初始化
+  - [x] PostgreSQL 資料庫設置
+  - [x] Prisma ORM 設置與資料庫遷移
+  - [x] 會員系統基礎功能
+  - [x] 管理後台基礎架構
+  - [x] 服務項目管理功能開發
+- 認證系統
+  - [x] 登入狀態管理優化
+  - [x] 登出功能實作
+  - [x] 路由權限控制
+  - [x] 資料庫整合
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### 已完成功能 (2024/01/13)
+- 專案初始化
+  - [x] Next.js 14 專案設置
+  - [x] Tailwind CSS 設置
+  - [x] TypeScript 設置
+  - [x] 專案目錄結構建立
+- UI 元件開發
+  - [x] Button 元件
+  - [x] Input 元件
+  - [x] Form 元件
+- 頁面開發
+  - [x] 首頁
+  - [x] 登入頁面
+  - [x] 註冊頁面
+- 認證系統
+  - [x] NextAuth.js 設置
+  - [x] API 路由設置
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+### 進行中功能
+- 按摩師管理
+  - [ ] 排班系統整合
+  - [ ] 服務項目關聯優化
+  - [ ] 資料驗證強化
+- 服務項目管理
+  - [ ] 編輯與刪除功能優化
+  - [ ] 確認對話框實作
+  - [ ] 錯誤處理優化
+
+### 待開發功能
+- 會員系統
+  - [ ] 個人資料編輯
+  - [ ] 密碼修改
+  - [ ] 預約記錄查詢
+- 預約系統
+  - [ ] 服務時段管理
+  - [ ] 預約流程實作
+- 管理後台
+  - [ ] 預約管理
+  - [ ] 會員管理
+  - [ ] 報表功能
+
+## 下一步工作項目
+1. 完善按摩師管理功能
+   - 實作排班系統
+   - 優化服務項目關聯
+   - 加強資料驗證
+2. 開發預約系統
+   - 設計預約流程
+   - 實作時段管理
+   - 整合通知功能
+
+## Prisma Studio 使用指南
+
+### 啟動方式
+1. 在終端機執行 `npx prisma studio`
+2. 開啟瀏覽器訪問 `http://localhost:5555`
+
+### 主要功能
+1. 查看資料表
+   - 點擊左側選單查看不同資料表
+   - 檢視所有記錄
+   - 搜尋和篩選功能
+2. 新增記錄
+   - 點擊 "Add record" 按鈕
+   - 填寫必要欄位
+   - 儲存新記錄
+3. 編輯記錄
+   - 點擊要編輯的欄位
+   - 修改內容
+   - 點擊儲存
+4. 刪除記錄
+   - 選擇要刪除的記錄
+   - 點擊刪除按鈕
+   - 確認刪除
+
+### 資料表說明
+- User: 使用者資料表
+  - 儲存所有使用者基本資料
+  - 包含角色區分（管理員/按摩師/會員）
+- Masseur: 按摩師資料表
+  - 儲存按摩師專屬資訊
+  - 關聯到 User 表格
+  - 包含照片和自我介紹等資訊
+- Service: 服務項目資料表
+  - 儲存所有可提供的服務
+  - 包含價格和時長設定
+- Schedule: 預約時段資料表
+  - 記錄按摩師可預約時段
+  - 關聯到按摩師和服務
+- Appointment: 預約記錄資料表
+  - 儲存所有預約資訊
+  - 關聯到會員、按摩師和服務
+
+## 環境設定
+1. 安裝相依套件：
+   ```bash
+   npm install
+   ```
+
+2. 設定環境變數：
+   複製 `.env.example` 到 `.env` 並填入必要的設定值：
+   ```
+   DATABASE_URL="postgresql://postgres:pony@localhost:5432/eilin_spa"
+   NEXTAUTH_URL="http://localhost:3000"
+   NEXTAUTH_SECRET="your-secret-key-eilin-spa-2024"
+   ```
+
+3. 初始化資料庫：
+   ```bash
+   npx prisma migrate dev
+   ```
+
+4. 啟動開發伺服器：
+   ```bash
+   npm run dev
+   ```
+
+## 開發注意事項
+1. 提交程式碼前請確保：
+   - 程式碼已經過格式化
+   - 所有測試都通過
+   - 沒有未使用的程式碼
+   
+2. 資料庫操作：
+   - 使用 Prisma Studio 進行資料維護
+   - 重要資料異動請先備份
+   - 定期檢查資料完整性
+
+## 問題回報
+如果發現任何問題或有改善建議，請建立 Issue 或直接聯繫開發團隊。
