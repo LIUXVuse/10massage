@@ -1,242 +1,56 @@
-// This is your Prisma schema file,
-// learn more about it in the docs: https://pris.ly/d/prisma-schema
-
-// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
-// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
 
 generator client {
   provider = "prisma-client-js"
 }
 
-datasource db {
-  provider = "postgresql"
-  url      = env("DATABASE_URL")
-}
-
-/// @title 使用者
-/// @description 儲存所有使用者資訊，包含一般會員、按摩師和管理員
 model User {
-  /// @description 使用者唯一識別碼
   id            String    @id @default(cuid())
-  /// @description 使用者姓名
-  name          String
-  /// @description 電子郵件地址
-  email         String    @unique
-  /// @description 密碼
+  name          String?
+  email         String?   @unique
   password      String
-  /// @description 手機號碼
   phone         String?
-  /// @description 使用者身份（管理員/按摩師/一般會員）
-  role          UserRole  @default(CLIENT)
-  /// @description 建立時間
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("user")
   createdAt     DateTime  @default(now())
-  /// @description 最後更新時間
   updatedAt     DateTime  @updatedAt
-  /// @description 預約記錄
-  appointments  Appointment[]
-  /// @description 按摩師資料（若為按摩師身份）
-  masseur      Masseur?
 }
 
-/// @title 按摩師
-/// @description 按摩師的詳細資料與服務項目
 model Masseur {
-  /// @description 按摩師唯一識別碼
-  id          String    @id @default(cuid())
-  /// @description 關聯的使用者資料
-  user        User?    @relation(fields: [userId], references: [id])
-  /// @description 使用者ID
-  userId      String?  @unique
-  /// @description 自我介紹
-  description String?
-  /// @description 照片URL
-  imageUrl    String?
-  imageScale  Float?   @default(1)
-  imageX      Float?   @default(0)
-  imageY      Float?   @default(0)
-  /// @description 排班時間
-  schedules   Schedule[]
-  /// @description 提供的服務
-  services    MasseurService[]
-  /// @description 預約記錄
-  appointments Appointment[]
-
-  @@map("masseurs")
-}
-
-/// @title 服務類型
-enum ServiceType {
-  /// @description 單人服務
-  SINGLE
-  /// @description 組合服務
-  COMBO
-}
-
-/// @title 服務分類
-enum ServiceCategory {
-  /// @description 按摩
-  MASSAGE
-  /// @description 護理
-  CARE
-  /// @description 療程
-  TREATMENT
-}
-
-/// @title 服務項目
-/// @description 所有可提供的按摩服務種類
-model Service {
-  /// @description 服務項目唯一識別碼
-  id          String    @id @default(cuid())
-  /// @description 服務名稱
+  id          String   @id @default(cuid())
   name        String
-  /// @description 服務描述
-  description String
-  /// @description 服務類型 (單一服務/組合服務)
-  type        ServiceType   @default(SINGLE)
-  /// @description 服務分類
-  category    ServiceCategory @default(MASSAGE)
-  /// @description 是否為推薦服務
-  isRecommended Boolean  @default(false)
-  /// @description 推薦排序（數字越小越前面）
-  recommendOrder Int     @default(0)
-  /// @description 是否啟用
+  image       String?
+  imageScale  Float?   @default(1.0)
+  imageX      Float?   @default(0.0)
+  imageY      Float?   @default(0.0)
+  cropX       Float?
+  cropY       Float?
+  cropWidth   Float?
+  cropHeight  Float?
+  description String?
+  experience  Int      @default(0)
   isActive    Boolean  @default(true)
-  /// @description 建立時間
+  sortOrder   Int      @default(999)
+  services    Service[]
   createdAt   DateTime @default(now())
-  /// @description 更新時間
-  updatedAt   DateTime @updatedAt
-
-  /// @description 服務時長選項
-  durations ServiceDuration[]
-  /// @description 按摩師提供的服務
-  masseurs  MasseurService[]
-  /// @description 預約記錄
-  appointments Appointment[]
-  /// @description 組合服務內容
-  comboItems   ComboServiceItem[] @relation("ComboService")
-  /// @description 作為組合服務的項目
-  includedIn   ComboServiceItem[] @relation("ServiceInCombo")
-}
-
-/// @description 服務時長選項
-model ServiceDuration {
-  id        String   @id @default(cuid())
-  /// @description 服務
-  service   Service  @relation(fields: [serviceId], references: [id])
-  serviceId String
-  /// @description 時長(分鐘)
-  duration  Int
-  /// @description 價格
-  price     Int
-  /// @description 建立時間
-  createdAt DateTime @default(now())
-  /// @description 更新時間
-  updatedAt DateTime @updatedAt
-
-  /// @description 預約記錄
-  appointments Appointment[]
-}
-
-/// @description 組合服務項目
-model ComboServiceItem {
-  id            String   @id @default(cuid())
-  /// @description 組合服務
-  comboService  Service  @relation("ComboService", fields: [comboServiceId], references: [id])
-  comboServiceId String
-  /// @description 包含的服務
-  service       Service  @relation("ServiceInCombo", fields: [serviceId], references: [id])
-  serviceId     String
-  /// @description 排序順序
-  order        Int      @default(0)
-  /// @description 建立時間
-  createdAt    DateTime @default(now())
-  /// @description 更新時間
-  updatedAt    DateTime @updatedAt
-}
-
-/// @title 按摩師服務項目
-/// @description 設定每位按摩師可提供的服務項目
-model MasseurService {
-  /// @description 按摩師與服務關聯ID
-  id        String   @id @default(cuid())
-  /// @description 按摩師資料
-  masseur   Masseur  @relation(fields: [masseurId], references: [id])
-  /// @description 按摩師ID
-  masseurId String
-  /// @description 服務項目資料
-  service   Service  @relation(fields: [serviceId], references: [id])
-  /// @description 服務項目ID
-  serviceId String
-
-  @@unique([masseurId, serviceId])
-}
-
-/// @title 排班時間
-/// @description 按摩師的可預約時段
-model Schedule {
-  /// @description 排班記錄唯一識別碼
-  id        String   @id @default(cuid())
-  /// @description 按摩師資料
-  masseur   Masseur  @relation(fields: [masseurId], references: [id])
-  /// @description 按摩師ID
-  masseurId String
-  /// @description 開始時間
-  startTime DateTime
-  /// @description 結束時間
-  endTime   DateTime
-  /// @description 是否已被預約
-  isBooked  Boolean  @default(false)
-}
-
-/// @title 預約紀錄
-/// @description 客戶的預約資料
-model Appointment {
-  /// @description 預約記錄唯一識別碼
-  id          String    @id @default(cuid())
-  /// @description 預約客戶
-  user        User      @relation(fields: [userId], references: [id])
-  /// @description 客戶ID
-  userId      String
-  /// @description 按摩師資料
-  masseur     Masseur   @relation(fields: [masseurId], references: [id])
-  /// @description 按摩師ID
-  masseurId   String
-  /// @description 預約服務
-  service     Service   @relation(fields: [serviceId], references: [id])
-  /// @description 服務ID
-  serviceId   String
-  /// @description 服務時長選項
-  duration    ServiceDuration @relation(fields: [durationId], references: [id])
-  /// @description 服務時長ID
-  durationId  String
-  /// @description 預約時間
-  datetime    DateTime
-  /// @description 預約狀態
-  status      AppointmentStatus @default(PENDING)
-  /// @description 建立時間
-  createdAt   DateTime  @default(now())
-  /// @description 最後更新時間
   updatedAt   DateTime  @updatedAt
 }
 
-/// @title 使用者身份
-enum UserRole {
-  /// @description 系統管理員
-  ADMIN
-  /// @description 按摩師
-  MASSEUR
-  /// @description 一般會員
-  CLIENT
-}
-
-/// @title 預約狀態
-enum AppointmentStatus {
-  /// @description 等待確認
-  PENDING
-  /// @description 已確認
-  CONFIRMED
-  /// @description 已取消
-  CANCELLED
-  /// @description 已完成
-  COMPLETED
-}
+model Service {
+  id          String    @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  duration    Int
+  type        String    @default("general")
+  category    String    @default("massage")
+  isActive    Boolean   @default(true)
+  isRecommend Boolean   @default(false)
+  masseurs    Masseur[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+} 

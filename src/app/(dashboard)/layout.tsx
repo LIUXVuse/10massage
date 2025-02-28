@@ -4,6 +4,7 @@ import Link from "next/link"
 import { useRouter } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
+import { isAdmin } from "@/lib/auth/auth-utils"
 
 export default function DashboardLayout({
   children,
@@ -12,6 +13,7 @@ export default function DashboardLayout({
 }) {
   const router = useRouter()
   const { data: session, status } = useSession()
+  const userIsAdmin = isAdmin(session);
 
   if (status === "loading") {
     return <div>載入中...</div>
@@ -38,26 +40,43 @@ export default function DashboardLayout({
                 儀表板
               </Link>
               <Link
+                href="/masseurs"
+                className="transition-colors hover:text-foreground/80 text-foreground"
+              >
+                查看按摩師
+              </Link>
+              <Link
                 href="/services"
                 className="transition-colors hover:text-foreground/80 text-foreground"
               >
                 服務項目
               </Link>
-              <Link
-                href="/booking"
-                className="transition-colors hover:text-foreground/80 text-foreground"
-              >
-                預約管理
-              </Link>
+              {userIsAdmin && (
+                <Link
+                  href="/users"
+                  className="transition-colors hover:text-foreground/80 text-foreground"
+                >
+                  用戶管理
+                </Link>
+              )}
             </nav>
           </div>
           <div className="flex items-center gap-2">
             <span className="text-sm text-muted-foreground">
-              {session?.user?.name} ({session?.user?.role === "ADMIN" ? "管理員" : "會員"})
+              {session?.user?.name} ({session?.user?.role?.toUpperCase() === "ADMIN" ? "管理員" : 
+                                     session?.user?.role?.toUpperCase() === "MASSEUR" ? "按摩師" : "會員"})
             </span>
             <Button
               variant="ghost"
-              onClick={() => signOut({ callbackUrl: "/login" })}
+              onClick={() => {
+                signOut({ 
+                  callbackUrl: "/login",
+                  redirect: true
+                }).catch(err => {
+                  console.error("登出時發生錯誤:", err);
+                  window.location.href = "/login";
+                });
+              }}
             >
               登出
             </Button>

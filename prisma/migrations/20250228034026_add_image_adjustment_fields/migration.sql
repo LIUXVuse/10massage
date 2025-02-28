@@ -1,0 +1,4 @@
+-- AlterTable
+ALTER TABLE "Masseur" ADD COLUMN "imageScale" REAL DEFAULT 1.0;
+ALTER TABLE "Masseur" ADD COLUMN "imageX" REAL DEFAULT 0.0;
+ALTER TABLE "Masseur" ADD COLUMN "imageY" REAL DEFAULT 0.0;

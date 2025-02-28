@@ -5,6 +5,29 @@ import { Button } from "@/components/ui/button"
 import { MasseurForm } from "@/components/masseurs/masseur-form"
 import { ConfirmDialog } from "@/components/ui/confirm-dialog"
 import Image from "next/image"
+import { useSession } from "next-auth/react"
+import { redirect } from "next/navigation"
+import { isAdmin } from "@/lib/auth/auth-utils"
+import { 
+  DndContext, 
+  closestCenter, 
+  KeyboardSensor, 
+  PointerSensor, 
+  useSensor, 
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core'
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable'
+import { CSS } from '@dnd-kit/utilities'
+import { GripVertical, Loader2 } from 'lucide-react'
+import { toast } from "@/components/ui/use-toast"
+import Link from "next/link"
 
 interface Service {
   id: string
@@ -17,8 +40,11 @@ interface Masseur {
   description: string
   imageUrl?: string
   imageScale?: number
-  imageX?: number
-  imageY?: number
+  cropX?: number
+  cropY?: number
+  cropWidth?: number
+  cropHeight?: number
+  sortOrder?: number
   services: Service[]
   user?: {
     id: string
@@ -27,222 +53,377 @@ interface Masseur {
   } | null
 }
 
+// 可排序的按摩師卡片組件
+function SortableMasseurCard({ 
+  masseur, 
+  userIsAdmin, 
+  onDelete
+}: { 
+  masseur: Masseur, 
+  userIsAdmin: boolean,
+  onDelete: (masseur: Masseur) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: masseur.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+    opacity: isDragging ? 0.8 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`bg-white p-4 rounded-lg shadow relative group ${isDragging ? 'ring-2 ring-primary shadow-lg' : ''}`}
+    >
+      {userIsAdmin && (
+        <div 
+          className="absolute top-2 left-2 cursor-grab opacity-30 group-hover:opacity-100 transition-opacity"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-6 w-6 text-gray-500" />
+        </div>
+      )}
+
+      <div className="relative h-40 w-full rounded-md overflow-hidden mb-3">
+        {masseur.imageUrl ? (
+          <>
+            <Image
+              src={masseur.imageUrl}
+              alt={masseur.name}
+              fill
+              style={{
+                objectFit: 'contain',
+                backgroundColor: '#f3f4f6'
+              }}
+              className="transition-all duration-300"
+              priority={true}
+              loading="eager"
+              onLoad={(e) => {
+                console.log("圖片載入完成", {
+                  masseurId: masseur.id,
+                  name: masseur.name,
+                  imageUrl: masseur.imageUrl,
+                  naturalWidth: (e.target as HTMLImageElement).naturalWidth,
+                  naturalHeight: (e.target as HTMLImageElement).naturalHeight
+                });
+              }}
+              onError={(e) => {
+                console.error("圖片載入錯誤", {
+                  masseurId: masseur.id,
+                  imageUrl: masseur.imageUrl,
+                  error: e
+                });
+              }}
+            />
+          </>
+        ) : (
+          <div className="flex items-center justify-center h-full bg-gray-100">
+            <span className="text-gray-400">無圖片</span>
+          </div>
+        )}
+      </div>
+
+      <h3 className="font-semibold text-lg mb-1">{masseur.name}</h3>
+      <p className="text-sm text-gray-600 mb-3 line-clamp-2 h-10">
+        {masseur.description || "無自我介紹"}
+      </p>
+
+      <div className="flex flex-wrap gap-1 mb-3">
+        {masseur.services && masseur.services.length > 0 ? (
+          masseur.services.slice(0, 3).map((service: any) => (
+            <span 
+              key={service.id} 
+              className="inline-block text-xs px-2 py-1 bg-blue-50 text-blue-700 rounded-full"
+            >
+              {service.name}
+            </span>
+          ))
+        ) : (
+          <span className="text-xs text-gray-400">未提供服務</span>
+        )}
+        {masseur.services && masseur.services.length > 3 && (
+          <span className="text-xs text-gray-500">+{masseur.services.length - 3}種服務</span>
+        )}
+      </div>
+
+      {userIsAdmin && (
+        <div className="flex justify-between mt-3 pt-3 border-t border-gray-100">
+          <Link
+            href={`/masseurs/edit/${masseur.id}`}
+            className="text-xs inline-flex items-center px-2.5 py-1.5 rounded-md font-medium bg-blue-50 text-blue-700 hover:bg-blue-100 transition-colors"
+          >
+            編輯
+          </Link>
+          <button
+            onClick={() => onDelete(masseur)}
+            className="text-xs inline-flex items-center px-2.5 py-1.5 rounded-md font-medium bg-red-50 text-red-700 hover:bg-red-100 transition-colors"
+          >
+            刪除
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function MasseursPage() {
+  const { data: session, status } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect('/login')
+    }
+  })
+
+  const userIsAdmin = isAdmin(session)
   const [masseurs, setMasseurs] = useState<Masseur[]>([])
   const [services, setServices] = useState<Service[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState("")
-  const [isAddingMasseur, setIsAddingMasseur] = useState(false)
-  const [editingMasseur, setEditingMasseur] = useState<Masseur | null>(null)
   const [deletingMasseur, setDeletingMasseur] = useState<Masseur | null>(null)
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+  const [isSavingOrder, setIsSavingOrder] = useState(false)
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  )
 
   useEffect(() => {
-    fetchMasseurs()
-    fetchServices()
-  }, [])
+    // 當會話狀態就緒且用戶已認證時，獲取數據
+    if (status === "authenticated") {
+      fetchMasseurs()
+      fetchServices()
+    }
+  }, [status])
 
   const fetchMasseurs = async () => {
     try {
-      const response = await fetch("/api/masseurs")
-      if (!response.ok) throw new Error("獲取按摩師列表失敗")
+      setIsLoading(true)
+      const response = await fetch('/api/masseurs')
       const data = await response.json()
       setMasseurs(data)
     } catch (error) {
-      setError("載入按摩師列表時發生錯誤")
-      console.error(error)
+      console.error('獲取按摩師列表時發生錯誤:', error)
+      toast({
+        title: "錯誤",
+        description: "獲取按摩師列表失敗",
+        variant: "destructive"
+      })
     } finally {
-      setLoading(false)
+      setIsLoading(false)
     }
   }
 
   const fetchServices = async () => {
     try {
-      const response = await fetch("/api/services")
-      if (!response.ok) throw new Error("獲取服務列表失敗")
+      const response = await fetch('/api/services')
       const data = await response.json()
       setServices(data)
     } catch (error) {
-      console.error("載入服務列表時發生錯誤:", error)
-    }
-  }
-
-  const handleAddMasseur = async (data: any) => {
-    try {
-      const response = await fetch("/api/masseurs", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data)
-      })
-
-      if (!response.ok) throw new Error("新增按摩師失敗")
-      await fetchMasseurs()
-      setIsAddingMasseur(false)
-    } catch (error) {
-      console.error("新增按摩師時發生錯誤:", error)
-      setError("新增按摩師時發生錯誤")
-    }
-  }
-
-  const handleEditMasseur = async (data: any) => {
-    if (!editingMasseur) return
-
-    try {
-      const response = await fetch("/api/masseurs", {
-        method: "PUT",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...data, id: editingMasseur.id })
-      })
-
-      if (!response.ok) throw new Error("更新按摩師失敗")
-      await fetchMasseurs()
-      setEditingMasseur(null)
-    } catch (error) {
-      console.error("更新按摩師時發生錯誤:", error)
-      setError("更新按摩師時發生錯誤")
+      console.error('獲取服務列表時發生錯誤:', error)
     }
   }
 
   const handleDeleteMasseur = async () => {
     if (!deletingMasseur) return
-
+    
     try {
-      const response = await fetch("/api/masseurs", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
+      const response = await fetch('/api/masseurs', {
+        method: 'DELETE',
+        headers: {
+          'Content-Type': 'application/json'
+        },
         body: JSON.stringify({ id: deletingMasseur.id })
       })
 
-      if (!response.ok) throw new Error("刪除按摩師失敗")
-      await fetchMasseurs()
-      setDeletingMasseur(null)
+      if (!response.ok) {
+        throw new Error('刪除按摩師失敗')
+      }
+
+      setMasseurs(prev => prev.filter(m => m.id !== deletingMasseur.id))
+      toast({
+        title: "成功",
+        description: "按摩師已成功刪除"
+      })
     } catch (error) {
-      console.error("刪除按摩師時發生錯誤:", error)
-      setError("刪除按摩師時發生錯誤")
+      console.error('刪除按摩師時發生錯誤:', error)
+      toast({
+        title: "錯誤",
+        description: "刪除按摩師失敗",
+        variant: "destructive"
+      })
+    } finally {
+      setDeletingMasseur(null)
+      setIsDeleteDialogOpen(false)
     }
   }
 
-  if (loading) return <div className="p-4">載入中...</div>
-  if (error) return <div className="p-4 text-red-500">{error}</div>
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event
+    
+    if (over && active.id !== over.id) {
+      setMasseurs((items) => {
+        const oldIndex = items.findIndex((item) => item.id === active.id)
+        const newIndex = items.findIndex((item) => item.id === over.id)
+        
+        toast({
+          title: "正在更新排序",
+          description: "正在保存新的按摩師排序...",
+          duration: 2000
+        })
+        
+        return arrayMove(items, oldIndex, newIndex)
+      })
+      
+      await saveNewOrder()
+    }
+  }
+  
+  const saveNewOrder = async () => {
+    if (!userIsAdmin) return
+    
+    setIsSavingOrder(true)
+    try {
+      const masseurOrders = masseurs.map((masseur, index) => ({
+        id: masseur.id,
+        order: index + 1
+      }))
+      
+      const response = await fetch("/api/masseurs", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ masseurOrders })
+      })
+      
+      if (!response.ok) {
+        throw new Error("更新排序失敗")
+      }
+      
+      toast({
+        title: "排序已更新",
+        description: "按摩師排序已成功保存，下次登入時將保持此排序",
+        duration: 3000
+      })
+    } catch (error) {
+      console.error("保存排序時發生錯誤:", error)
+      toast({
+        title: "排序更新失敗",
+        description: "無法保存按摩師排序，請稍後再試",
+        variant: "destructive",
+        duration: 5000
+      })
+    } finally {
+      setIsSavingOrder(false)
+    }
+  }
+
+  const handleDeleteClick = (masseur: Masseur) => {
+    setDeletingMasseur(masseur);
+    setIsDeleteDialogOpen(true);
+  };
 
   return (
-    <div className="p-4">
-      <div className="flex justify-between items-center mb-4">
-        <h1 className="text-2xl font-bold">按摩師管理</h1>
-        <Button onClick={() => setIsAddingMasseur(true)}>新增按摩師</Button>
-      </div>
-
-      {isAddingMasseur && (
-        <div className="mb-4 p-4 border rounded-lg">
-          <h2 className="text-lg font-semibold mb-4">新增按摩師</h2>
-          <MasseurForm
-            onSubmit={handleAddMasseur}
-            onCancel={() => setIsAddingMasseur(false)}
-            services={services}
-          />
-        </div>
-      )}
-
-      {editingMasseur && (
-        <div className="mb-4 p-4 border rounded-lg">
-          <h2 className="text-lg font-semibold mb-4">編輯按摩師</h2>
-          <MasseurForm
-            initialData={{
-              name: editingMasseur.user?.name || editingMasseur.name,
-              description: editingMasseur.description,
-              services: editingMasseur.services.map(s => s.id),
-              imageUrl: editingMasseur.imageUrl,
-            }}
-            onSubmit={handleEditMasseur}
-            onCancel={() => setEditingMasseur(null)}
-            services={services}
-          />
-        </div>
-      )}
-
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {masseurs.map((masseur) => (
-          <div key={masseur.id} className="border rounded-lg p-4">
-            <div className="flex justify-between items-start mb-2">
-              <h3 className="text-lg font-semibold">{masseur.user?.name || masseur.name}</h3>
-              <div className="flex gap-2">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => setEditingMasseur(masseur)}
-                >
-                  編輯
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={() => setDeletingMasseur(masseur)}
-                >
-                  刪除
-                </Button>
-              </div>
-            </div>
-            
-            {masseur.imageUrl && (
-              <div className="relative w-full aspect-[4/3] mb-4">
-                <div
-                  className="absolute inset-0 overflow-hidden"
-                >
-                  <div
-                    className="absolute"
-                    style={{
-                      transform: `translate(${masseur.imageX || 0}px, ${masseur.imageY || 0}px) scale(${masseur.imageScale || 1})`,
-                      transformOrigin: 'center',
-                    }}
-                  >
-                    <Image
-                      src={masseur.imageUrl}
-                      alt={masseur.user?.name || masseur.name}
-                      width={400}
-                      height={300}
-                      className="object-cover rounded-lg"
-                      priority
-                    />
-                  </div>
-                </div>
-              </div>
-            )}
-
-            {masseur.description && (
-              <p className="text-gray-600 mb-2">{masseur.description}</p>
-            )}
-
-            {masseur.services.length > 0 && (
-              <div>
-                <p className="text-sm font-medium mb-1">提供服務:</p>
-                <div className="flex flex-wrap gap-1">
-                  {masseur.services.map((service) => (
-                    <span
-                      key={service.id}
-                      className="text-sm bg-gray-100 px-2 py-1 rounded"
-                    >
-                      {service.name}
-                    </span>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {masseur.user && (
-              <div className="mt-2 text-sm text-gray-500">
-                已綁定帳號: {masseur.user.email}
-              </div>
-            )}
+    <div className="p-6 relative">
+      {isSavingOrder && (
+        <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-50">
+          <div className="bg-white p-4 rounded-lg shadow-lg flex items-center space-x-3">
+            <Loader2 className="h-6 w-6 text-primary animate-spin" />
+            <span className="text-gray-700 font-medium">正在保存排序...</span>
           </div>
-        ))}
+        </div>
+      )}
+      
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">按摩師管理</h1>
+        
+        {userIsAdmin && (
+          <div>
+            <Link href="/masseurs/edit/new">
+              <Button>
+                新增按摩師
+              </Button>
+            </Link>
+          </div>
+        )}
       </div>
-
+      
+      {userIsAdmin && (
+        <div className="mb-4 p-3 bg-blue-50 border border-blue-200 rounded-lg text-blue-700 flex items-center">
+          <svg xmlns="http://www.w3.org/2000/svg" className="h-5 w-5 mr-2 flex-shrink-0" viewBox="0 0 20 20" fill="currentColor">
+            <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
+          </svg>
+          <span>
+            <strong>排序提示：</strong> 您可以通過拖放按摩師卡片來調整顯示順序。點擊並按住卡片左上角的拖動圖標，然後拖動到所需位置。排序會自動保存，下次登入時仍會保持此順序。
+          </span>
+        </div>
+      )}
+      
+      {isLoading ? (
+        <div className="flex justify-center items-center min-h-[400px]">
+          <Loader2 className="h-12 w-12 animate-spin text-primary" />
+          <span className="ml-3 text-lg">載入中...</span>
+        </div>
+      ) : masseurs.length === 0 ? (
+        <div className="bg-white p-8 rounded-lg shadow-sm text-center">
+          <p className="text-gray-500 mb-4">尚未新增任何按摩師</p>
+          {userIsAdmin && (
+            <Link href="/masseurs/edit/new">
+              <Button>
+                新增第一位按摩師
+              </Button>
+            </Link>
+          )}
+        </div>
+      ) : (
+        <DndContext 
+          sensors={sensors}
+          collisionDetection={closestCenter}
+          onDragEnd={handleDragEnd}
+        >
+          <SortableContext 
+            items={masseurs.map(m => m.id)}
+            strategy={verticalListSortingStrategy}
+          >
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+              {masseurs.map((masseur) => (
+                <SortableMasseurCard
+                  key={masseur.id}
+                  masseur={masseur}
+                  userIsAdmin={userIsAdmin}
+                  onDelete={handleDeleteClick}
+                />
+              ))}
+            </div>
+          </SortableContext>
+        </DndContext>
+      )}
+      
       <ConfirmDialog
-        isOpen={!!deletingMasseur}
-        onClose={() => setDeletingMasseur(null)}
+        open={!!deletingMasseur && isDeleteDialogOpen}
+        onOpenChange={() => {
+          setIsDeleteDialogOpen(false)
+          setDeletingMasseur(null)
+        }}
         onConfirm={handleDeleteMasseur}
-        title="刪除按摩師"
-        message={`確定要刪除按摩師 ${deletingMasseur?.name} 嗎？此操作無法復原。`}
+        title="確認刪除"
+        description={`您確定要刪除按摩師「${deletingMasseur?.name}」嗎？此操作無法撤銷。`}
       />
     </div>
   )
-} 
+}

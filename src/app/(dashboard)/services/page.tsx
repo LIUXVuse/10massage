@@ -5,6 +5,9 @@ import { ServiceForm } from "@/components/services/service-form";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2 } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
+import { useSession } from "next-auth/react";
+import { redirect } from "next/navigation";
+import { isAdmin } from "@/lib/auth/auth-utils";
 
 interface Service {
   id: string;
@@ -45,6 +48,18 @@ const categoryColors = {
 };
 
 export default function ServicesPage() {
+  const { data: session } = useSession({
+    required: true,
+    onUnauthenticated() {
+      redirect('/login')
+    }
+  })
+
+  // 使用統一的權限檢查函數
+  console.log("SESSION DATA:", session);
+  const userIsAdmin = isAdmin(session);
+  console.log("IS ADMIN:", userIsAdmin, "ROLE:", session?.user?.role);
+
   const [services, setServices] = useState<Service[]>([]);
   const [masseurs, setMasseurs] = useState<Masseur[]>([]);
   const [isEditing, setIsEditing] = useState(false);
@@ -104,6 +119,7 @@ export default function ServicesPage() {
   };
 
   const handleDelete = async (id: string) => {
+    if (!userIsAdmin) return; // 非管理員不能刪除
     if (!confirm("確定要刪除這個服務嗎？")) return;
 
     try {
@@ -119,6 +135,7 @@ export default function ServicesPage() {
   };
 
   const handleEdit = (service: Service) => {
+    if (!userIsAdmin) return; // 非管理員不能編輯
     setSelectedService(service);
     setIsEditing(true);
   };
@@ -173,10 +190,12 @@ export default function ServicesPage() {
   return (
     <div className="container mx-auto p-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">服務管理</h1>
-        <Button onClick={() => setIsEditing(true)}>
-          <Plus className="mr-2 h-4 w-4" /> 新增服務
-        </Button>
+        <h1 className="text-2xl font-bold">服務列表</h1>
+        {userIsAdmin && (
+          <Button onClick={() => setIsEditing(true)}>
+            <Plus className="mr-2 h-4 w-4" /> 新增服務
+          </Button>
+        )}
       </div>
 
       <div className="flex gap-2 mb-6 overflow-x-auto pb-2">
@@ -225,20 +244,24 @@ export default function ServicesPage() {
                 </div>
               </div>
               <div className="flex space-x-2">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  onClick={() => handleEdit(service)}
-                >
-                  <Pencil className="h-4 w-4" />
-                </Button>
-                <Button
-                  variant="destructive"
-                  size="icon"
-                  onClick={() => handleDelete(service.id)}
-                >
-                  <Trash2 className="h-4 w-4" />
-                </Button>
+                {userIsAdmin && (
+                  <>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleEdit(service)}
+                    >
+                      <Pencil className="h-4 w-4" />
+                    </Button>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={() => handleDelete(service.id)}
+                    >
+                      <Trash2 className="h-4 w-4" />
+                    </Button>
+                  </>
+                )}
               </div>
             </div>
 
