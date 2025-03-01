@@ -4,8 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build",
-    "postbuild": "node -e \"const fs=require('fs');const path=require('path');['.next','.next/standalone'].forEach(dir=>{if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});fs.copyFileSync('_routes.json',path.join(dir,'_routes.json'));console.log('Copied _routes.json to '+dir);});\"",
+    "build": "next build && node -e \"const fs=require('fs');const path=require('path');fs.copyFileSync('_routes.json',path.join('.next','_routes.json'));console.log('Copied _routes.json to .next');\"",
     "start": "next start",
     "lint": "next lint"
   },

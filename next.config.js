@@ -1,5 +1,5 @@
 /** @type {import('next').NextConfig} */
-module.exports = {
+const nextConfig = {
   images: {
     remotePatterns: [
       {
@@ -23,20 +23,20 @@ module.exports = {
     ignoreDuringBuilds: true,
   },
   // 輸出配置，優化Cloudflare部署
-  output: 'standalone',
+  output: 'export',
   // 添加transpilePackages處理模組兼容性問題
   transpilePackages: ['next-auth'],
   // 優化webpack配置，解決檔案大小限制問題
   webpack: (config, { isServer, dev }) => {
     // 只在生產構建階段進行優化
     if (!isServer && !dev) {
-      // 超級激進的代碼分割設置，確保文件不超過12MB
+      // 超級激進的代碼分割設置，確保文件不超過Cloudflare的25MB限制
       config.optimization.splitChunks = {
         chunks: 'all',
-        maxInitialRequests: 100,
-        maxAsyncRequests: 100,
+        maxInitialRequests: 25,
+        maxAsyncRequests: 25,
         minSize: 5000,
-        maxSize: 12000000,
+        maxSize: 5000000, // 減小到5MB以確保安全
         cacheGroups: {
           // 框架核心 - 拆成更小塊
           framework1: {
@@ -247,4 +247,6 @@ module.exports = {
     
     return config;
   },
-} 
+}
+
+module.exports = nextConfig; 
