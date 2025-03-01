@@ -23,7 +23,7 @@ const nextConfig = {
     ignoreDuringBuilds: true,
   },
   // 輸出配置，優化Cloudflare部署
-  output: 'export',
+  output: 'standalone',
   // 添加transpilePackages處理模組兼容性問題
   transpilePackages: ['next-auth'],
   // 優化webpack配置，解決檔案大小限制問題
