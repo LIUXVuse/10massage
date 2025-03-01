@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "next build && node -e \"const fs=require('fs');const path=require('path');fs.copyFileSync('_routes.json',path.join('.next','_routes.json'));console.log('Copied _routes.json to .next');\"",
+    "build": "next build && node -e \"const fs=require('fs');const path=require('path');fs.copyFileSync('_routes.json',path.join('out','_routes.json'));console.log('Copied _routes.json to out directory');\"",
     "start": "next start",
     "lint": "next lint"
   },

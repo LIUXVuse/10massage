@@ -22,15 +22,13 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // 輸出配置，設為適合Cloudflare的方式
-  distDir: '.next',
-  output: 'standalone',
+  // 改為靜態輸出，完全減小文件大小限制
+  output: 'export',
   // 禁用壓縮，讓Cloudflare處理
   compress: false,
-  // 啟用實驗性appDir功能
+  // 啟用實驗性功能
   experimental: {
     appDocumentPreloading: true,
-    serverComponentsExternalPackages: []
   },
   // 添加transpilePackages處理模組兼容性問題
   transpilePackages: ['next-auth'],
@@ -38,42 +36,50 @@ const nextConfig = {
   webpack: (config, { isServer, dev }) => {
     // 只在生產構建階段進行優化
     if (!isServer && !dev) {
-      // 超級激進的代碼分割設置，確保文件不超過Cloudflare的25MB限制
+      // 使用極限代碼分割設置，解決文件大小問題
       config.optimization.splitChunks = {
         chunks: 'all',
-        maxInitialRequests: 25,
-        maxAsyncRequests: 25,
-        minSize: 5000,
-        maxSize: 5000000, // 減小到5MB以確保安全
+        maxInitialRequests: 100,
+        maxAsyncRequests: 100,
+        minSize: 1000,
+        maxSize: 1000000, // 1MB大小限制，確保分割更徹底
         cacheGroups: {
-          // 框架核心 - 拆成更小塊
           framework: {
             test: /[\\/]node_modules[\\/](react|react-dom|next)[\\/]/,
             name: 'framework',
-            priority: 50,
-          },
-          // UI庫
-          ui: {
-            test: /[\\/]node_modules[\\/](@radix-ui|lucide-react|tailwindcss)[\\/]/,
-            name: 'ui-lib',
             priority: 40,
           },
-          // 第三方庫
           lib: {
             test: /[\\/]node_modules[\\/]/,
-            name: 'lib',
+            name(module) {
+              // 獲取npm包名稱並分割成更小塊
+              const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
+              // 使用包名第一個字母分組
+              const firstLetter = packageName.charAt(0);
+              return `lib-${firstLetter}`;
+            },
             priority: 30,
           },
-          // 應用代碼
           app: {
             test: /[\\/]src[\\/]/,
-            name: 'app',
+            name(module) {
+              // 獲取代碼的路徑
+              const path = module.resource || '';
+              // 根據路徑分割成更小的塊
+              if (path.includes('/components/')) {
+                return 'components';
+              } else if (path.includes('/app/')) {
+                return 'app-pages';
+              } else {
+                return 'app-other';
+              }
+            },
             priority: 20,
           },
         },
       };
       
-      // 增加Tree Shaking的積極性
+      // 強制啟用Tree Shaking
       config.optimization.usedExports = true;
       config.optimization.sideEffects = true;
       
