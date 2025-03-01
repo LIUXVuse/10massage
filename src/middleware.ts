@@ -2,6 +2,19 @@ import { NextResponse } from 'next/server'
 import { getToken } from 'next-auth/jwt'
 import { NextRequestWithAuth } from 'next-auth/middleware'
 
+// 添加Cloudflare環境檢測
+const isCloudflare = process.env.CLOUDFLARE === 'true' || process.env.NODE_ENV === 'production';
+
+// 確保Cloudflare環境中正確處理路徑
+function normalizePath(path: string): string {
+  // 確保路徑格式一致
+  if (isCloudflare) {
+    // 處理尾部斜線統一問題
+    return path.endsWith('/') ? path : `${path}/`;
+  }
+  return path;
+}
+
 // 定義需要保護的路由
 const adminRoutes = [
   '/api/masseurs/create',
@@ -77,24 +90,23 @@ export default async function middleware(request: NextRequestWithAuth) {
     const environment = process.env.NODE_ENV || 'development';
     const isProduction = environment === 'production';
     
-    // 在生產環境中，使用帶前綴的cookie名稱
-    // 修正：Cloudflare Pages可能使用不同的cookie名稱
-    const cookieName = isProduction 
-      ? 'next-auth.session-token' // 嘗試使用標準名稱
-      : 'next-auth.session-token';
-    
+    // 不指定cookieName，讓nextAuth自動檢測
     const token = await getToken({ 
       req: request, 
       secret: process.env.NEXTAUTH_SECRET
-      // 不指定cookieName，讓nextAuth自動檢測
     });
     
-    const pathname = request.nextUrl.pathname;
+    // 規範化路徑處理
+    let pathname = request.nextUrl.pathname;
+    // 在Cloudflare環境下標準化路徑
+    if (isCloudflare) {
+      pathname = normalizePath(pathname);
+    }
     
     // 添加詳細日誌以便調試
     console.log(`中間件檢查 - [${new Date().toISOString()}]`);
-    console.log(`- 環境: ${environment}, 是否生產環境: ${isProduction}`);
-    console.log(`- 路徑: ${pathname}`);
+    console.log(`- 環境: ${environment}, 是否生產環境: ${isProduction}, 是否Cloudflare: ${isCloudflare}`);
+    console.log(`- 原始路徑: ${request.nextUrl.pathname}, 標準化路徑: ${pathname}`);
     console.log(`- 令牌存在: ${!!token}`);
     if (token) {
       console.log(`- 用戶信息: email=${token.email}, role=${token.role}, name=${token.name}`);
@@ -102,21 +114,24 @@ export default async function middleware(request: NextRequestWithAuth) {
     
     // 對於公共API和静态资源，直接允许访问
     for (const publicRoute of publicApiRoutes) {
-      if (pathname === publicRoute || pathname.startsWith(publicRoute)) {
+      // 考慮尾斜線問題進行匹配
+      const publicPathNormalized = isCloudflare ? normalizePath(publicRoute) : publicRoute;
+      if (pathname === publicPathNormalized || pathname.startsWith(publicPathNormalized)) {
         console.log(`- 允許訪問公開路徑: ${pathname} (匹配 ${publicRoute})`);
         return NextResponse.next();
       }
     }
     
     // 檢查是否匹配嚴格管理頁面路由
-    // 處理各種可能的路徑格式：/masseurs, /dashboard/masseurs, /(dashboard)/masseurs
+    // 處理各種可能的路徑格式，包括尾斜線問題
     let isStrictAdminPage = false;
     for (const route of strictAdminPageRoutes) {
+      const routeNormalized = isCloudflare ? normalizePath(route) : route;
       if (
-        pathname === route || 
-        pathname.startsWith(`${route}/`) ||
-        pathname.includes(`/dashboard${route}`) ||
-        pathname.includes(`/(dashboard)${route}`)
+        pathname === routeNormalized || 
+        pathname.startsWith(`${routeNormalized}`) ||
+        pathname.includes(`/dashboard${routeNormalized}`) ||
+        pathname.includes(`/(dashboard)${routeNormalized}`)
       ) {
         isStrictAdminPage = true;
         console.log(`- 匹配嚴格管理頁面: ${pathname} (匹配 ${route})`);
