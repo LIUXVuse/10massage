@@ -49,6 +49,7 @@ export function LoginForm() {
       router.push("/dashboard")
       router.refresh()
     } catch (error) {
+      console.error("登入錯誤:", error)
       setError("登入時發生錯誤")
     } finally {
       setIsLoading(false)
@@ -58,6 +59,7 @@ export function LoginForm() {
   // 測試帳號登錄函數
   async function loginWithTestAccount(role: string) {
     try {
+      console.log(`嘗試使用測試帳號登入: ${role}`)
       setIsLoading(true)
       setError("")
 
@@ -80,6 +82,7 @@ export function LoginForm() {
           return;
       }
 
+      console.log(`使用測試帳號: ${email}`)
       const result = await signIn("credentials", {
         email: email,
         password: password,
@@ -87,15 +90,17 @@ export function LoginForm() {
       })
 
       if (result?.error) {
+        console.error(`測試帳號登入失敗: ${result.error}`)
         setError(`測試帳號登入失敗: ${result.error}`);
         return;
       }
 
+      console.log("測試帳號登入成功，重定向到 /dashboard")
       router.push("/dashboard");
       router.refresh();
     } catch (error) {
-      setError("測試帳號登入時發生錯誤");
       console.error("測試帳號登入錯誤:", error);
+      setError("測試帳號登入時發生錯誤");
     } finally {
       setIsLoading(false);
     }
@@ -136,7 +141,7 @@ export function LoginForm() {
         {isLoading ? "登入中..." : "登入"}
       </Button>
 
-      {/* 測試帳號區域 */}
+      {/* 測試帳號區域 - 確保在所有環境中都顯示 */}
       <div className="pt-4 border-t mt-6">
         <p className="text-sm text-gray-500 mb-3 text-center">使用測試帳號快速登入</p>
         <div className="grid grid-cols-3 gap-2">
@@ -145,7 +150,7 @@ export function LoginForm() {
             variant="outline" 
             onClick={() => loginWithTestAccount("admin")}
             disabled={isLoading}
-            className="text-xs"
+            className="text-xs bg-amber-50 hover:bg-amber-100 border-amber-200"
           >
             管理員測試
           </Button>
@@ -154,7 +159,7 @@ export function LoginForm() {
             variant="outline" 
             onClick={() => loginWithTestAccount("masseur")}
             disabled={isLoading}
-            className="text-xs"
+            className="text-xs bg-blue-50 hover:bg-blue-100 border-blue-200"
           >
             按摩師測試
           </Button>
@@ -163,7 +168,7 @@ export function LoginForm() {
             variant="outline" 
             onClick={() => loginWithTestAccount("user")}
             disabled={isLoading}
-            className="text-xs"
+            className="text-xs bg-green-50 hover:bg-green-100 border-green-200"
           >
             一般用戶測試
           </Button>

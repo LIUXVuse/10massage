@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "postbuild": "cp -r _routes.json .next/ && cp -r _routes.json .next/standalone/",
     "start": "next start",
     "lint": "next lint"
   },
