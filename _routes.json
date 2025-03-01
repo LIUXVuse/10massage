@@ -1,27 +1,27 @@
 {
   "version": 1,
-  "include": ["/*", "/masseurs/*", "/services/*", "/api/*", "/dashboard/*", "/init/*"],
+  "include": ["/", "/_next/*", "/favicon.ico", "/api/*", "/dashboard*", "/init*", "/login*", "/register*", "/masseurs*", "/services*", "/users*", "/static*"],
   "exclude": [],
   "routes": [
     {
-      "src": "/masseurs.*",
-      "dest": "/masseurs"
+      "src": "/masseurs/([^/]+)",
+      "dest": "/masseurs/$1"
     },
     {
-      "src": "/services.*",
-      "dest": "/services"
+      "src": "/services/([^/]+)",
+      "dest": "/services/$1"
     },
     {
-      "src": "/dashboard.*",
-      "dest": "/dashboard"
+      "src": "/dashboard/([^/]+)",
+      "dest": "/dashboard/$1"
     },
     {
-      "src": "/users.*",
-      "dest": "/users"
+      "src": "/users/([^/]+)",
+      "dest": "/users/$1"
     },
     {
-      "src": "/init.*",
-      "dest": "/init"
+      "src": "/init/([^/]+)",
+      "dest": "/init/$1"
     },
     {
       "src": "/(.*)",
