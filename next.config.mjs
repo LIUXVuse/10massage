@@ -30,43 +30,51 @@ const nextConfig = {
   },
   // 添加Webpack配置，解決檔案大小限制問題
   webpack: (config, { isServer }) => {
-    // 較為簡單的分割配置，避免複雜的module.context匹配
-    config.optimization.splitChunks = {
-      chunks: 'all',
-      maxInitialRequests: 30,
-      minSize: 20000,
-      maxSize: 18000000, // 減小到18MB
-      cacheGroups: {
-        framework: {
-          name: 'framework',
-          test: /[\\/]node_modules[\\/](react|react-dom|next)[\\/]/,
-          priority: 40,
-          reuseExistingChunk: true,
+    // 生產環境中啟用程式碼拆分
+    if (!isServer) {
+      config.optimization.splitChunks = {
+        chunks: 'all',
+        cacheGroups: {
+          default: false,
+          vendors: false,
+          // 拆分大型庫和框架
+          framework: {
+            test: /[\\/]node_modules[\\/](react|react-dom|next|@next)[\\/]/,
+            name: 'framework',
+            priority: 40,
+            chunks: 'all',
+            enforce: true,
+          },
+          // 拆分UI組件庫
+          uiComponents: {
+            test: /[\\/]node_modules[\\/](@radix-ui|lucide-react|tailwindcss)[\\/]/,
+            name: 'ui-components',
+            priority: 30,
+            chunks: 'all',
+          },
+          // 拆分其他第三方庫
+          lib: {
+            test: /[\\/]node_modules[\\/]/,
+            name: 'lib',
+            priority: 20,
+            chunks: 'all',
+          },
+          // 應用代碼拆分
+          app: {
+            name: 'app',
+            minChunks: 2,
+            priority: 10,
+            chunks: 'all',
+          },
         },
-        lib: {
-          test: /[\\/]node_modules[\\/]/,
-          name: 'lib',
-          priority: 30,
-          reuseExistingChunk: true,
-        },
-        commons: {
-          name: 'commons',
-          minChunks: 2,
-          priority: 20,
-          reuseExistingChunk: true,
-        },
-        styles: {
-          name: 'styles',
-          test: /\.css$/,
-          chunks: 'all',
-          priority: 10,
-          enforce: true,
-        }
-      },
-    };
-    
+        maxInitialRequests: 25,
+        minSize: 20000,
+      };
+    }
     return config;
   },
+  // 添加transpilePackages處理模組兼容性問題
+  transpilePackages: ['next-auth'],
 }
 
 export default nextConfig 

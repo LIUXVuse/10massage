@@ -31,7 +31,8 @@ const publicApiRoutes = [
   '/api/services',
   '/api/admin/init-accounts',
   '/api/admin/init-test-accounts',
-  '/api/admin/init-masseurs'
+  '/api/admin/init-masseurs',
+  '/init' // 添加初始化頁面到公開路由
 ]
 
 // 檢查用戶是否為管理員 - 與auth-utils統一邏輯
