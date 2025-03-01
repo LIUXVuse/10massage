@@ -5,7 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
-    "postbuild": "cp -r _routes.json .next/ && cp -r _routes.json .next/standalone/",
+    "postbuild": "node -e \"const fs=require('fs');const path=require('path');['.next','.next/standalone'].forEach(dir=>{if(!fs.existsSync(dir))fs.mkdirSync(dir,{recursive:true});fs.copyFileSync('_routes.json',path.join(dir,'_routes.json'));console.log('Copied _routes.json to '+dir);});\"",
     "start": "next start",
     "lint": "next lint"
   },
