@@ -2,7 +2,7 @@ name = "10massage"
 compatibility_date = "2023-05-18"
 compatibility_flags = ["nodejs_compat"]
 
-# 指定Pages的構建輸出目錄
+# 正確指定Pages的構建輸出目錄
 pages_build_output_dir = ".next/standalone"
 
 # D1數據庫配置
