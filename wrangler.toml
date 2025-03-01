@@ -2,8 +2,8 @@ name = "10massage"
 compatibility_date = "2023-05-18"
 compatibility_flags = ["nodejs_compat"]
 
-# 指定構建輸出目錄為out (next export的默認輸出目錄)
-pages_build_output_dir = "out"
+# 指定next.js的標準輸出目錄
+pages_build_output_dir = ".next/standalone"
 
 # D1數據庫配置
 [[d1_databases]]

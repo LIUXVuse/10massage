@@ -22,8 +22,8 @@ const nextConfig = {
   eslint: {
     ignoreDuringBuilds: true,
   },
-  // 改為靜態輸出，完全減小文件大小限制
-  output: 'export',
+  // 輸出配置，使用標準模式以支持API
+  output: 'standalone',
   // 禁用壓縮，讓Cloudflare處理
   compress: false,
   // 啟用實驗性功能
