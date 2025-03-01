@@ -52,25 +52,42 @@ const nextConfig = {
           lib: {
             test: /[\\/]node_modules[\\/]/,
             name(module) {
-              // 獲取npm包名稱並分割成更小塊
-              const packageName = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/)[1];
-              // 使用包名第一個字母分組
-              const firstLetter = packageName.charAt(0);
-              return `lib-${firstLetter}`;
+              try {
+                // 安全處理模塊上下文
+                if (!module || !module.context) return 'libs';
+                
+                // 獲取npm包名稱並分割成更小塊
+                const match = module.context.match(/[\\/]node_modules[\\/](.*?)([\\/]|$)/);
+                if (!match || !match[1]) return 'libs';
+                
+                const packageName = match[1];
+                // 使用包名第一個字母分組
+                const firstLetter = packageName.charAt(0);
+                return `lib-${firstLetter || 'x'}`;
+              } catch (e) {
+                return 'libs';
+              }
             },
             priority: 30,
           },
           app: {
             test: /[\\/]src[\\/]/,
             name(module) {
-              // 獲取代碼的路徑
-              const path = module.resource || '';
-              // 根據路徑分割成更小的塊
-              if (path.includes('/components/')) {
-                return 'components';
-              } else if (path.includes('/app/')) {
-                return 'app-pages';
-              } else {
+              try {
+                // 安全處理模塊資源
+                if (!module || !module.resource) return 'app-other';
+                
+                // 獲取代碼的路徑
+                const path = module.resource || '';
+                // 根據路徑分割成更小的塊
+                if (path.includes('/components/')) {
+                  return 'components';
+                } else if (path.includes('/app/')) {
+                  return 'app-pages';
+                } else {
+                  return 'app-other';
+                }
+              } catch (e) {
                 return 'app-other';
               }
             },
