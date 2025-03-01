@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { getToken } from 'next-auth/jwt';
 
+// 支持Cloudflare Pages和Prisma
+export const runtime = 'nodejs'; // 從'edge'改為'nodejs'，以支持Prisma
+export const revalidate = 3600; // 每小時重新驗證一次
+
 interface Props {
   params: { id: string }
 }
@@ -44,21 +48,20 @@ export async function GET(request: Request, { params }: Props) {
     console.log('獲取單一按摩師原始數據:', masseur);
 
     // 將數據庫中的image字段映射到前端使用的imageUrl，並包含所有裁剪參數
-    const masseurMapped = {
+    const mappedMasseur = {
       ...masseur,
       imageUrl: masseur.image,
-      // 確保所有裁剪參數都被傳遞到前端，並設置預設值
+      // 確保這些欄位具有預設值，以防資料庫中沒有這些值
       imageScale: (masseur as any).imageScale || 1,
       cropX: (masseur as any).cropX || 0,
       cropY: (masseur as any).cropY || 0,
       cropWidth: (masseur as any).cropWidth || 300,
       cropHeight: (masseur as any).cropHeight || 225
     };
-
-    console.log('返回給前端的按摩師資料:', masseurMapped);
-
-    // 返回按摩師詳細資料
-    return NextResponse.json(masseurMapped);
+    
+    console.log('返回給前端的按摩師數據:', mappedMasseur);
+    
+    return NextResponse.json(mappedMasseur);
   } catch (error) {
     console.error('獲取按摩師詳細資料時發生錯誤:', error);
     return NextResponse.json({ error: '獲取按摩師詳細資料失敗' }, { status: 500 });

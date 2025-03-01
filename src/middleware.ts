@@ -13,6 +13,13 @@ const adminRoutes = [
   '/admin'
 ]
 
+// 具體的管理頁面路由，需要額外檢查
+const strictAdminPageRoutes = [
+  '/masseurs',
+  '/services',
+  '/users'
+]
+
 const masseurRoutes = [
   '/masseur/profile'
   // 將來可以添加按摩師專屬路由
@@ -21,65 +28,143 @@ const masseurRoutes = [
 // 可以自由訪問的API路由
 const publicApiRoutes = [
   '/api/masseurs',
-  '/api/services'
+  '/api/services',
+  '/api/admin/init-accounts',
+  '/api/admin/init-test-accounts',
+  '/api/admin/init-masseurs'
 ]
 
 // 檢查用戶是否為管理員 - 與auth-utils統一邏輯
 function isAdmin(token?: any) {
-  return token?.role?.toUpperCase() === "ADMIN";
+  if (!token) return false;
+  try {
+    const role = token?.role?.toUpperCase();
+    const isAdminRole = role === "ADMIN";
+    console.log(`權限檢查 - 使用者: ${token.email}, 角色: ${role}, 是否管理員: ${isAdminRole}`);
+    return isAdminRole;
+  } catch (error) {
+    console.error("權限檢查出錯:", error);
+    return false;
+  }
 }
 
 // 檢查用戶是否為按摩師或管理員 - 與auth-utils統一邏輯
 function isMasseurOrAdmin(token?: any) {
-  const role = token?.role?.toUpperCase();
-  return role === "ADMIN" || role === "MASSEUR";
+  if (!token) return false;
+  try {
+    const role = token?.role?.toUpperCase();
+    const hasAccess = role === "ADMIN" || role === "MASSEUR";
+    console.log(`權限檢查 - 使用者: ${token.email}, 角色: ${role}, 有權限: ${hasAccess}`);
+    return hasAccess;
+  } catch (error) {
+    console.error("權限檢查出錯:", error);
+    return false;
+  }
 }
 
 export default async function middleware(request: NextRequestWithAuth) {
-  const token = await getToken({ req: request })
-  const pathname = request.nextUrl.pathname
-  
-  // 檢查是否是需要保護的API路由
-  const isAdminRoute = adminRoutes.some(route => pathname.startsWith(route))
-  const isMasseurRoute = masseurRoutes.some(route => pathname.startsWith(route))
-  const isPublicApiRoute = publicApiRoutes.some(route => pathname.startsWith(route))
-  
-  // 如果是公開API路由，直接允許訪問
-  if (isPublicApiRoute) {
-    return NextResponse.next()
-  }
-  
-  // 如果是管理員路由但沒有令牌或不是管理員角色
-  if (isAdminRoute && (!token || !isAdmin(token))) {
-    // 對API請求返回未授權錯誤
-    if (pathname.startsWith('/api/')) {
-      return NextResponse.json({ error: '未授權訪問' }, { status: 401 })
+  try {
+    // 針對Cloudflare環境修改：正確指定cookie名稱
+    const cookieName = process.env.NODE_ENV === 'production' 
+      ? '__Secure-next-auth.session-token' 
+      : 'next-auth.session-token';
+    
+    const token = await getToken({ 
+      req: request, 
+      secret: process.env.NEXTAUTH_SECRET,
+      cookieName: cookieName
+    });
+    
+    const pathname = request.nextUrl.pathname
+    
+    // 增加更詳細的日誌以便調試
+    console.log(`中間件檢查 - 路徑: ${pathname}, 令牌存在: ${!!token}${token ? `, 用戶: ${token.email}, 角色: ${token.role}` : ''}, Cookie名稱: ${cookieName}`);
+    
+    // 修正路徑匹配邏輯，考慮Next.js 14的分組功能
+    // Next.js 14的(dashboard)是一個分組，不影響實際URL路徑
+    const dashboardPath = pathname.replace(/^\/(dashboard)/, '');
+    console.log(`轉換後路徑: ${dashboardPath}`);
+    
+    // 檢查是否是需要保護的API路由
+    const isAdminRoute = adminRoutes.some(route => pathname.startsWith(route));
+    const isStrictAdminPage = strictAdminPageRoutes.some(route => 
+      dashboardPath.startsWith(route) || pathname.includes(`/dashboard${route}`)
+    );
+    const isMasseurRoute = masseurRoutes.some(route => pathname.startsWith(route));
+    const isPublicApiRoute = publicApiRoutes.some(route => pathname.startsWith(route));
+    
+    console.log(`路由檢查結果 - 管理員路由: ${isAdminRoute}, 嚴格管理頁面: ${isStrictAdminPage}, 按摩師路由: ${isMasseurRoute}, 公開API: ${isPublicApiRoute}`);
+    
+    // 如果是公開API路由，直接允許訪問
+    if (isPublicApiRoute) {
+      console.log(`允許訪問公開API: ${pathname}`);
+      return NextResponse.next();
     }
-    // 對頁面請求重定向到首頁
-    return NextResponse.redirect(new URL('/', request.url))
-  }
-  
-  // 如果是按摩師路由但不是按摩師或管理員
-  if (isMasseurRoute && (!token || !isMasseurOrAdmin(token))) {
-    if (pathname.startsWith('/api/')) {
-      return NextResponse.json({ error: '未授權訪問' }, { status: 401 })
+    
+    // 如果是管理員路由但沒有令牌或不是管理員角色
+    if ((isAdminRoute || isStrictAdminPage) && (!token || !isAdmin(token))) {
+      console.log(`拒絕訪問管理員路由: ${pathname}, 令牌: ${!!token}, 角色: ${token?.role}`);
+      
+      // 對API請求返回未授權錯誤
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ 
+          error: '未授權訪問',
+          message: '您需要管理員權限才能訪問此資源',
+          path: pathname 
+        }, { status: 401 });
+      }
+      
+      // 對頁面請求重定向到首頁
+      const redirectUrl = new URL('/', request.url);
+      return NextResponse.redirect(redirectUrl);
     }
-    return NextResponse.redirect(new URL('/', request.url))
+    
+    // 如果是按摩師路由但不是按摩師或管理員
+    if (isMasseurRoute && (!token || !isMasseurOrAdmin(token))) {
+      console.log(`拒絕訪問按摩師路由: ${pathname}, 令牌: ${!!token}, 角色: ${token?.role}`);
+      
+      if (pathname.startsWith('/api/')) {
+        return NextResponse.json({ 
+          error: '未授權訪問',
+          message: '您需要按摩師或管理員權限才能訪問此資源',
+          path: pathname 
+        }, { status: 401 });
+      }
+      
+      const redirectUrl = new URL('/', request.url);
+      return NextResponse.redirect(redirectUrl);
+    }
+    
+    console.log(`允許訪問: ${pathname}`);
+    return NextResponse.next();
+  } catch (error) {
+    console.error("中間件處理錯誤:", error);
+    
+    // 出錯時，對API請求返回錯誤
+    if (request.nextUrl.pathname.startsWith('/api/')) {
+      return NextResponse.json({ 
+        error: '伺服器錯誤',
+        message: '權限驗證過程中發生錯誤',
+        path: request.nextUrl.pathname
+      }, { status: 500 });
+    }
+    
+    // 出錯時，對頁面請求重定向到首頁
+    return NextResponse.redirect(new URL('/', request.url));
   }
-  
-  return NextResponse.next()
 }
 
 export const config = {
   matcher: [
     /*
      * 匹配所有需要保護的路由:
-     * - API路由 (/api/*)
-     * - 管理員路由 (/admin/*)
+     * - API路由 (/api/*)，除了公開API
+     * - 管理員路由 (/admin/*, /dashboard/*)
      * - 按摩師路由 (/masseur/*)
      */
     '/api/:path*',
     '/admin/:path*',
+    '/dashboard/:path*',
     '/masseur/:path*'
   ],
 } 

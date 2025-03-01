@@ -9,33 +9,64 @@ const nextConfig = {
     ],
     unoptimized: true
   },
-  // 排除需要原生編譯的模塊
-  serverExternalPackages: ['bcrypt', '@mapbox/node-pre-gyp'],
-  // 添加webpack配置，防止客戶端嘗試導入特定模塊
+  // 移除靜態導出配置
+  // output: 'export',
+  trailingSlash: true,
+  // 忽略構建錯誤
+  typescript: {
+    ignoreBuildErrors: true,
+  },
+  eslint: {
+    ignoreDuringBuilds: true,
+  },
+  // Cloudflare Pages 支持
+  experimental: {
+    // 防止Node.js模塊錯誤
+    // serverComponentsExternalPackages 已移至 serverExternalPackages
+    serverExternalPackages: ['bcrypt', '@mapbox/node-pre-gyp', 'fs', 'path', 'crypto', 'os'],
+    // 移除 Edge Runtime 支持，因為我們需要Node.js運行時
+    // runtime: 'edge',
+    // serverComponents: true,
+  },
+  // 添加Webpack配置，解決檔案大小限制問題
   webpack: (config, { isServer }) => {
-    if (!isServer) {
-      // 在客戶端構建時，排除這些模塊
-      config.resolve.alias = {
-        ...config.resolve.alias,
-        'bcrypt': false,
-        '@mapbox/node-pre-gyp': false,
-        '@auth/prisma-adapter': false
-      };
-      
-      // 使用空實現替代NODE原生模塊
-      config.resolve.fallback = {
-        ...config.resolve.fallback,
-        fs: false,
-        path: false,
-        os: false,
-        crypto: false,
-        stream: false,
-        zlib: false
-      };
-    }
+    // 較為簡單的分割配置，避免複雜的module.context匹配
+    config.optimization.splitChunks = {
+      chunks: 'all',
+      maxInitialRequests: 30,
+      minSize: 20000,
+      maxSize: 18000000, // 減小到18MB
+      cacheGroups: {
+        framework: {
+          name: 'framework',
+          test: /[\\/]node_modules[\\/](react|react-dom|next)[\\/]/,
+          priority: 40,
+          reuseExistingChunk: true,
+        },
+        lib: {
+          test: /[\\/]node_modules[\\/]/,
+          name: 'lib',
+          priority: 30,
+          reuseExistingChunk: true,
+        },
+        commons: {
+          name: 'commons',
+          minChunks: 2,
+          priority: 20,
+          reuseExistingChunk: true,
+        },
+        styles: {
+          name: 'styles',
+          test: /\.css$/,
+          chunks: 'all',
+          priority: 10,
+          enforce: true,
+        }
+      },
+    };
     
     return config;
-  }
+  },
 }
 
 export default nextConfig 

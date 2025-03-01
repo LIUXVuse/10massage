@@ -14,6 +14,8 @@
 - [功能特色](#功能特色)
 - [開發進度](#開發進度)
 - [管理員指南](#管理員指南)
+- [已知問題](#已知問題)
+- [Cloudflare部署指南](#cloudflare部署指南)
 - [開發者文件](#開發者文件)
 - [問題回報](#問題回報)
 - [授權資訊](#授權資訊)
@@ -133,6 +135,15 @@ src/
 - **狀態更新通知**: 即時系統通知
 
 ## 📈 開發進度
+
+### 已完成功能 (2025/03/15)
+- **Cloudflare 部署優化**
+  - [x] 將系統成功部署到 Cloudflare Pages
+  - [x] 整合 Cloudflare D1 資料庫服務
+  - [x] 整合 Cloudflare R2 儲存服務
+  - [x] 優化構建過程，解決大型檔案問題
+  - [x] 設置適當的綁定，確保資源訪問權限
+  - [x] 記錄已知問題和解決方案
 
 ### 已完成功能 (2025/03/01)
 - **按摩師管理功能全面優化**
@@ -292,8 +303,60 @@ src/
    - 使用`npx prisma migrate deploy`生成正確的SQL遷移檔案
    - 將SQL遷移檔案導入Cloudflare D1
    - 使用管理界面導入主要資料（如按摩師、服務項目）
+4. **部署命令**：
+   ```powershell
+   # 匯出資料庫結構
+   npx prisma migrate deploy
+   cat ./prisma/migrations/*/migration.sql > ./combined.sql
+   
+   # 將結構導入D1（記得加上--remote參數）
+   wrangler d1 execute 10massage-db --file=./combined.sql --remote
+   
+   # 構建和部署
+   npm run build
+   wrangler pages deploy .next --project-name=10massage
+   ```
 
-> 注意：圖片上傳功能在本地和Cloudflare環境都可正常使用，但存儲位置會有所不同。本地使用文件系統，Cloudflare使用R2。
+> 注意：圖片上傳功能在本地和Cloudflare環境都可正常使用，但存儲位置會有所不同。本地使用文件系統，Cloudflare使用R2。必須在Cloudflare控制台中正確設置D1和R2的綁定才能正常運作。
+
+## ⚠️ 已知問題
+
+在使用本系統時，請注意以下已知問題：
+
+### 一般問題
+1. **圖片上傳問題**
+   - 問題：上傳圖片後無法正確顯示
+   - 解決方案：確保`/public/uploads`目錄存在且有寫入權限
+
+2. **數據庫鎖定問題**
+   - 問題：偶爾會出現數據庫鎖定錯誤
+   - 解決方案：重啟開發服務器，或者使用`npx prisma migrate reset`重設數據庫
+
+### Cloudflare部署問題
+1. **訪問按摩師管理頁面被重定向到首頁**
+   - 問題：在Cloudflare環境中，訪問按摩師管理頁面時被重定向到首頁並登出
+   - 狀態：已記錄，等待修復
+
+2. **部署後按摩師數據不顯示**
+   - 問題：從本地環境部署到Cloudflare後，原有的按摩師數據不顯示
+   - 解決方案：請參閱 [Cloudflare部署指南](#cloudflare部署指南)
+
+更多Cloudflare部署相關問題及詳細解決方案，請查看 [CLOUDFLARE-DEPLOYMENT.md](./CLOUDFLARE-DEPLOYMENT.md) 文件。
+
+## Cloudflare部署指南
+
+本系統支持部署到Cloudflare Pages，並配合使用Cloudflare D1數據庫和R2存儲服務。部署過程中可能會遇到一些問題，我們已將這些問題及解決方案記錄在專門的部署指南中。
+
+**查看完整部署步驟和問題解決方案：**
+- [Cloudflare部署問題與解決方案](./CLOUDFLARE-DEPLOYMENT.md)
+
+主要部署步驟：
+1. 設置Cloudflare服務（D1數據庫和R2存儲桶）
+2. 配置wrangler.toml
+3. 構建並部署應用
+4. 設置綁定和環境變數
+5. 部署數據庫結構
+6. 初始化賬戶
 
 ## 👨‍💻 開發者文件
 

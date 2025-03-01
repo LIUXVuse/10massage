@@ -1,5 +1,9 @@
 import { NextResponse } from "next/server"
-import { prisma } from "@/lib/db"
+import { prisma } from "@/lib/db/prisma"
+
+// 支持Cloudflare Pages和Prisma
+export const runtime = 'nodejs';
+export const revalidate = 3600; // 每小時重新驗證一次
 
 export async function POST(req: Request) {
   try {

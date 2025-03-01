@@ -3,6 +3,10 @@ import { prisma } from '@/lib/db/prisma';
 import { getToken } from 'next-auth/jwt';
 import { NextApiRequest } from 'next';
 
+// 支持Cloudflare Pages和Prisma
+export const runtime = 'nodejs'; // 從'edge'改為'nodejs'，以支持Prisma
+export const revalidate = 3600; // 每小時重新驗證一次
+
 // 獲取按摩師列表 - 公開API，所有用戶可以訪問
 export async function GET() {
   try {

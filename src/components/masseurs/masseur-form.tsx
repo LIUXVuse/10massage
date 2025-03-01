@@ -70,6 +70,8 @@ export function MasseurForm({
   const imageRef = useRef<HTMLDivElement>(null)
   const cropBoxRef = useRef<HTMLDivElement>(null)
   const dropZoneRef = useRef<HTMLDivElement>(null)
+  const [isUploading, setIsUploading] = useState(false)
+  const [uploadError, setUploadError] = useState<string | null>(null)
 
   // 裁剪框最小尺寸
   const MIN_CROP_SIZE = 50
@@ -90,23 +92,30 @@ export function MasseurForm({
   useEffect(() => {
     if (initialData) {
       // 設置基本表單值
-      form.setValue("name", initialData.name)
-      form.setValue("description", initialData.description || "")
-      form.setValue("imageUrl", initialData.imageUrl || "")
+      console.log("設置表單初始值:", initialData);
+      form.setValue("name", initialData.name);
+      form.setValue("description", initialData.description || "");
+      form.setValue("imageUrl", initialData.imageUrl || "");
       
-      // 設置縮放
+      // 設置裁剪和縮放相關的字段
       if (initialData.imageScale) {
+        console.log("設置縮放值:", initialData.imageScale);
         setImageScale(initialData.imageScale);
         form.setValue("imageScale", initialData.imageScale);
       }
       
-      // 設置裁剪框
-      if (
-        initialData.cropX !== undefined && 
-        initialData.cropY !== undefined &&
-        initialData.cropWidth !== undefined && 
-        initialData.cropHeight !== undefined
-      ) {
+      // 設置裁剪框，只有當所有裁剪參數都存在時才設置
+      if (initialData.cropX !== undefined && 
+          initialData.cropY !== undefined &&
+          initialData.cropWidth !== undefined && 
+          initialData.cropHeight !== undefined) {
+        console.log("設置裁剪參數:", {
+          x: initialData.cropX,
+          y: initialData.cropY,
+          width: initialData.cropWidth,
+          height: initialData.cropHeight
+        });
+        
         setCropBox({
           x: initialData.cropX,
           y: initialData.cropY,
@@ -114,20 +123,16 @@ export function MasseurForm({
           height: initialData.cropHeight
         });
         
+        // 設置表單值
         form.setValue("cropX", initialData.cropX);
         form.setValue("cropY", initialData.cropY);
         form.setValue("cropWidth", initialData.cropWidth);
         form.setValue("cropHeight", initialData.cropHeight);
         
-        // 移除自動進入裁切模式的設定，預設使用檢視模式
-        setEditMode('view');
-      } else if (initialData.imageScale != null) {
-        // 如果有縮放數據，預設也使用檢視模式
+        // 根據已有數據選擇合適的編輯模式
+        // 若有裁剪數據，默認進入預覽模式，讓用戶可以看到當前效果
         setEditMode('view');
       }
-
-      // 設置圖片預覽
-      setPreviewImage(initialData.imageUrl || null);
     }
   }, [initialData, form]);
 
@@ -172,9 +177,17 @@ export function MasseurForm({
   }
 
   const handleImageUpload = async (event: React.ChangeEvent<HTMLInputElement>) => {
-    const file = event.target.files?.[0]
-    if (file) {
-      await processFile(file)
+    setIsUploading(true);
+    try {
+      const files = event.target.files;
+      if (files && files.length > 0) {
+        await processFile(files[0]);
+      }
+    } catch (error) {
+      console.error("圖片上傳錯誤:", error);
+      setUploadError("圖片上傳失敗，請重試");
+    } finally {
+      setIsUploading(false);
     }
   }
 
@@ -463,9 +476,9 @@ export function MasseurForm({
           name="name"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>名稱</FormLabel>
+              <FormLabel className="text-base">按摩師姓名 <span className="text-red-500">*</span></FormLabel>
               <FormControl>
-                <Input placeholder="請輸入按摩師名稱" {...field} />
+                <Input placeholder="請輸入按摩師姓名" {...field} />
               </FormControl>
               <FormMessage />
             </FormItem>
@@ -477,14 +490,20 @@ export function MasseurForm({
           name="description"
           render={({ field }) => (
             <FormItem>
-              <FormLabel>描述 (選填，最多150字)</FormLabel>
+              <FormLabel className="text-base">按摩師介紹</FormLabel>
               <FormControl>
-                <Textarea
-                  placeholder="請輸入按摩師描述（選填）"
-                  className="resize-none"
-                  {...field}
+                <Textarea 
+                  placeholder="請輸入按摩師簡介 (最多150字)" 
+                  {...field} 
+                  value={field.value || ""}
+                  className="resize-none h-24"
                 />
               </FormControl>
+              <div className="flex justify-end">
+                <span className="text-xs text-gray-500">
+                  {(field.value?.length || 0)}/150
+                </span>
+              </div>
               <FormMessage />
             </FormItem>
           )}
@@ -499,15 +518,37 @@ export function MasseurForm({
               <div className="space-y-4">
                 <div className="flex items-center space-x-2">
                   <FormControl>
-                    <Input placeholder="請輸入圖片網址" {...field} />
+                    <div className="flex gap-2">
+                      <Input 
+                        placeholder="輸入照片URL或點擊右側按鈕上傳" 
+                        {...field} 
+                        value={field.value || ""}
+                        disabled={isUploading}
+                        className="flex-1"
+                      />
+                      <TooltipProvider>
+                        <Tooltip>
+                          <TooltipTrigger asChild>
+                            <Button
+                              type="button"
+                              variant="outline"
+                              className="px-3 relative"
+                              disabled={isUploading}
+                              onClick={() => fileInputRef.current?.click()}
+                            >
+                              {isUploading ? (
+                                <Loader2 className="h-5 w-5 animate-spin" />
+                              ) : (
+                                <UploadCloud className="h-5 w-5" />
+                              )}
+                              <span className="sr-only">上傳照片</span>
+                            </Button>
+                          </TooltipTrigger>
+                          <TooltipContent>上傳照片</TooltipContent>
+                        </Tooltip>
+                      </TooltipProvider>
+                    </div>
                   </FormControl>
-                  <Button 
-                    type="button" 
-                    variant="outline" 
-                    onClick={() => fileInputRef.current?.click()}
-                  >
-                    上傳圖片
-                  </Button>
                   <input
                     type="file"
                     ref={fileInputRef}

@@ -1,0 +1,21 @@
+{
+  "/_not-found/page": "app/_not-found/page.js",
+  "/favicon.ico/route": "app/favicon.ico/route.js",
+  "/api/admin/set-role/route": "app/api/admin/set-role/route.js",
+  "/api/auth/[...nextauth]/route": "app/api/auth/[...nextauth]/route.js",
+  "/api/auth/register/route": "app/api/auth/register/route.js",
+  "/api/masseurs/[id]/route": "app/api/masseurs/[id]/route.js",
+  "/api/masseurs/route": "app/api/masseurs/route.js",
+  "/api/services/route": "app/api/services/route.js",
+  "/api/users/route": "app/api/users/route.js",
+  "/api/upload/route": "app/api/upload/route.js",
+  "/api/services/[id]/route": "app/api/services/[id]/route.js",
+  "/page": "app/page.js",
+  "/(auth)/login/page": "app/(auth)/login/page.js",
+  "/(auth)/register/page": "app/(auth)/register/page.js",
+  "/(dashboard)/dashboard/page": "app/(dashboard)/dashboard/page.js",
+  "/(dashboard)/masseurs/edit/[id]/page": "app/(dashboard)/masseurs/edit/[id]/page.js",
+  "/(dashboard)/masseurs/page": "app/(dashboard)/masseurs/page.js",
+  "/(dashboard)/services/page": "app/(dashboard)/services/page.js",
+  "/(dashboard)/users/page": "app/(dashboard)/users/page.js"
+}

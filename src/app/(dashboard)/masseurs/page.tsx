@@ -188,9 +188,9 @@ export default function MasseursPage() {
   const userIsAdmin = isAdmin(session)
   const [masseurs, setMasseurs] = useState<Masseur[]>([])
   const [services, setServices] = useState<Service[]>([])
+  const [loading, setLoading] = useState(true)
   const [deletingMasseur, setDeletingMasseur] = useState<Masseur | null>(null)
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false)
-  const [isLoading, setIsLoading] = useState(true)
   const [isSavingOrder, setIsSavingOrder] = useState(false)
 
   const sensors = useSensors(
@@ -205,16 +205,19 @@ export default function MasseursPage() {
   )
 
   useEffect(() => {
-    // 當會話狀態就緒且用戶已認證時，獲取數據
-    if (status === "authenticated") {
-      fetchMasseurs()
-      fetchServices()
-    }
-  }, [status])
+    console.log("會話狀態:", status)
+    console.log("用戶:", session?.user)
+    console.log("是否為管理員:", userIsAdmin)
+  }, [session, status, userIsAdmin])
+
+  useEffect(() => {
+    fetchMasseurs()
+    fetchServices()
+  }, [])
 
   const fetchMasseurs = async () => {
     try {
-      setIsLoading(true)
+      setLoading(true)
       const response = await fetch('/api/masseurs')
       const data = await response.json()
       setMasseurs(data)
@@ -226,7 +229,7 @@ export default function MasseursPage() {
         variant: "destructive"
       })
     } finally {
-      setIsLoading(false)
+      setLoading(false)
     }
   }
 
@@ -334,32 +337,21 @@ export default function MasseursPage() {
   }
 
   const handleDeleteClick = (masseur: Masseur) => {
+    console.log("嘗試刪除按摩師:", masseur.name);
     setDeletingMasseur(masseur);
     setIsDeleteDialogOpen(true);
-  };
+  }
 
   return (
-    <div className="p-6 relative">
-      {isSavingOrder && (
-        <div className="absolute inset-0 bg-white/50 flex items-center justify-center z-50">
-          <div className="bg-white p-4 rounded-lg shadow-lg flex items-center space-x-3">
-            <Loader2 className="h-6 w-6 text-primary animate-spin" />
-            <span className="text-gray-700 font-medium">正在保存排序...</span>
-          </div>
-        </div>
-      )}
-      
+    <div className="container mx-auto py-6 relative">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">按摩師管理</h1>
-        
+        <h1 className="text-3xl font-bold">按摩師管理</h1>
         {userIsAdmin && (
-          <div>
-            <Link href="/masseurs/edit/new">
-              <Button>
-                新增按摩師
-              </Button>
-            </Link>
-          </div>
+          <Link href="/masseurs/edit/new">
+            <Button className="bg-green-600 hover:bg-green-700">
+              <span className="mr-2">+</span> 新增按摩師
+            </Button>
+          </Link>
         )}
       </div>
       
@@ -369,24 +361,22 @@ export default function MasseursPage() {
             <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7-4a1 1 0 11-2 0 1 1 0 012 0zM9 9a1 1 0 000 2v3a1 1 0 001 1h1a1 1 0 100-2v-3a1 1 0 00-1-1H9z" clipRule="evenodd" />
           </svg>
           <span>
-            <strong>排序提示：</strong> 您可以通過拖放按摩師卡片來調整顯示順序。點擊並按住卡片左上角的拖動圖標，然後拖動到所需位置。排序會自動保存，下次登入時仍會保持此順序。
+            <strong>排序提示：</strong> 您可以通過拖放按摩師卡片來調整顯示順序。點擊並按住卡片左上角的拖動圖標，然後拖動到所需位置。
           </span>
         </div>
       )}
       
-      {isLoading ? (
-        <div className="flex justify-center items-center min-h-[400px]">
-          <Loader2 className="h-12 w-12 animate-spin text-primary" />
-          <span className="ml-3 text-lg">載入中...</span>
+      {loading ? (
+        <div className="flex items-center justify-center h-64">
+          <Loader2 className="h-8 w-8 text-primary animate-spin" />
+          <span className="ml-2 text-lg">載入中...</span>
         </div>
       ) : masseurs.length === 0 ? (
-        <div className="bg-white p-8 rounded-lg shadow-sm text-center">
+        <div className="text-center py-12 border border-dashed border-gray-300 rounded-lg">
           <p className="text-gray-500 mb-4">尚未新增任何按摩師</p>
           {userIsAdmin && (
             <Link href="/masseurs/edit/new">
-              <Button>
-                新增第一位按摩師
-              </Button>
+              <Button>新增第一位按摩師</Button>
             </Link>
           )}
         </div>
@@ -400,7 +390,7 @@ export default function MasseursPage() {
             items={masseurs.map(m => m.id)}
             strategy={verticalListSortingStrategy}
           >
-            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-4">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
               {masseurs.map((masseur) => (
                 <SortableMasseurCard
                   key={masseur.id}
@@ -411,18 +401,26 @@ export default function MasseursPage() {
               ))}
             </div>
           </SortableContext>
+          {isSavingOrder && (
+            <div className="fixed inset-0 bg-white/50 flex items-center justify-center z-50">
+              <div className="bg-white p-4 rounded-lg shadow-lg flex items-center space-x-3">
+                <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                <span className="text-gray-700 font-medium">正在保存排序...</span>
+              </div>
+            </div>
+          )}
         </DndContext>
       )}
       
       <ConfirmDialog
-        open={!!deletingMasseur && isDeleteDialogOpen}
-        onOpenChange={() => {
-          setIsDeleteDialogOpen(false)
-          setDeletingMasseur(null)
-        }}
-        onConfirm={handleDeleteMasseur}
+        open={isDeleteDialogOpen}
         title="確認刪除"
-        description={`您確定要刪除按摩師「${deletingMasseur?.name}」嗎？此操作無法撤銷。`}
+        description={`您確定要刪除按摩師 "${deletingMasseur?.name}" 嗎？此操作無法撤銷。`}
+        onConfirm={handleDeleteMasseur}
+        onCancel={() => {
+          setIsDeleteDialogOpen(false);
+          setDeletingMasseur(null);
+        }}
       />
     </div>
   )

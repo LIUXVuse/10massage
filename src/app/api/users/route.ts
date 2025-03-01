@@ -2,6 +2,10 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { getToken } from 'next-auth/jwt';
 
+// 支持Cloudflare Pages和Prisma
+export const runtime = 'nodejs'; // 從'edge'改為'nodejs'，以支持Prisma
+export const revalidate = 3600; // 每小時重新驗證一次
+
 // 獲取所有用戶 - 只有管理員可以訪問
 export async function GET(request: Request) {
   try {

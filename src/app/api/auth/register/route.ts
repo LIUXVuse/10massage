@@ -1,8 +1,21 @@
 import { NextResponse } from "next/server"
-import { hash } from "bcrypt"
 import { z } from "zod"
-
 import { prisma } from "@/lib/db/prisma"
+import { hashPassword } from "@/lib/auth/auth.server"
+
+// 支持Cloudflare Pages和Prisma
+export const runtime = "nodejs"; // 從'edge'改為'nodejs'，以支持密碼哈希功能
+
+// 不再需要這個簡單哈希函數，我們使用從auth.server.ts導入的hashPassword
+// function simpleHash(str: string): string {
+//   let hash = 0;
+//   for (let i = 0; i < str.length; i++) {
+//     const char = str.charCodeAt(i);
+//     hash = ((hash << 5) - hash) + char;
+//     hash = hash & hash; // 轉換為32bit整數
+//   }
+//   return hash.toString(16);
+// }
 
 const registerSchema = z.object({
   name: z.string().min(2),
@@ -29,7 +42,8 @@ export async function POST(req: Request) {
       )
     }
 
-    const hashedPassword = await hash(body.password, 10)
+    // 使用從auth.server.ts導入的hashPassword函數
+    const hashedPassword = hashPassword(body.password);
 
     const user = await prisma.user.create({
       data: {

@@ -1,8 +1,28 @@
 name = "10massage"
-main = "src/index.ts"
-compatibility_date = "2024-01-22"
+main = "build/index.js"
+compatibility_date = "2023-06-28"
+node_compat = true
+
+[site]
+bucket = "./out"
+
+[build]
+command = "npm run build"
 
 [[d1_databases]]
 binding = "DB"
-database_name = "massage-db"
-database_id = "massage-db" 
+database_name = "10massage-db"
+database_id = "d4bee1b5-2b48-4355-af90-0214c5162981"
+
+[env.production]
+workers_dev = false
+route = "10massage.pages.dev/*"
+
+# 靜態資源配置
+[site.static_files]
+"/images/*" = "/images/*"
+"/fonts/*" = "/fonts/*"
+
+[[r2_buckets]]
+binding = "STORAGE"
+bucket_name = "10massage-storage" 

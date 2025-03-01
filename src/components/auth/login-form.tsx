@@ -55,6 +55,52 @@ export function LoginForm() {
     }
   }
 
+  // 測試帳號登錄函數
+  async function loginWithTestAccount(role: string) {
+    try {
+      setIsLoading(true)
+      setError("")
+
+      let email = "";
+      let password = "password123";
+
+      switch(role) {
+        case "admin":
+          email = "admin@example.com";
+          break;
+        case "masseur":
+          email = "masseur@example.com";
+          break;
+        case "user":
+          email = "user@example.com";
+          break;
+        default:
+          setError("無效的測試帳號類型");
+          setIsLoading(false);
+          return;
+      }
+
+      const result = await signIn("credentials", {
+        email: email,
+        password: password,
+        redirect: false,
+      })
+
+      if (result?.error) {
+        setError(`測試帳號登入失敗: ${result.error}`);
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch (error) {
+      setError("測試帳號登入時發生錯誤");
+      console.error("測試帳號登入錯誤:", error);
+    } finally {
+      setIsLoading(false);
+    }
+  }
+
   return (
     <form onSubmit={handleSubmit(onSubmit)} className="space-y-4">
       <div className="space-y-2">
@@ -89,6 +135,40 @@ export function LoginForm() {
       <Button type="submit" className="w-full" disabled={isLoading}>
         {isLoading ? "登入中..." : "登入"}
       </Button>
+
+      {/* 測試帳號區域 */}
+      <div className="pt-4 border-t mt-6">
+        <p className="text-sm text-gray-500 mb-3 text-center">使用測試帳號快速登入</p>
+        <div className="grid grid-cols-3 gap-2">
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => loginWithTestAccount("admin")}
+            disabled={isLoading}
+            className="text-xs"
+          >
+            管理員測試
+          </Button>
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => loginWithTestAccount("masseur")}
+            disabled={isLoading}
+            className="text-xs"
+          >
+            按摩師測試
+          </Button>
+          <Button 
+            type="button" 
+            variant="outline" 
+            onClick={() => loginWithTestAccount("user")}
+            disabled={isLoading}
+            className="text-xs"
+          >
+            一般用戶測試
+          </Button>
+        </div>
+      </div>
     </form>
   )
 } 
