@@ -1,31 +1,5 @@
 {
   "version": 1,
   "include": ["/*"],
-  "exclude": ["/api/*"],
-  "routes": [
-    {
-      "src": "/masseurs",
-      "dest": "/masseurs/"
-    },
-    {
-      "src": "/services",
-      "dest": "/services/"
-    },
-    {
-      "src": "/dashboard",
-      "dest": "/dashboard/"
-    },
-    {
-      "src": "/init",
-      "dest": "/init/"
-    },
-    {
-      "src": "/(.*)/",
-      "dest": "/$1/index.html"
-    },
-    {
-      "src": "/(.*)",
-      "dest": "/$1"
-    }
-  ]
+  "exclude": []
 } 
