@@ -1,28 +1,17 @@
 name = "10massage"
-main = "build/index.js"
-compatibility_date = "2023-06-28"
-node_compat = true
+compatibility_date = "2023-05-18"
+compatibility_flags = ["nodejs_compat"]
 
-[site]
-bucket = "./out"
+# 指定Pages的構建輸出目錄
+pages_build_output_dir = ".next/standalone"
 
-[build]
-command = "npm run build"
-
+# D1數據庫配置
 [[d1_databases]]
 binding = "DB"
 database_name = "10massage-db"
 database_id = "d4bee1b5-2b48-4355-af90-0214c5162981"
 
-[env.production]
-workers_dev = false
-route = "10massage.pages.dev/*"
-
-# 靜態資源配置
-[site.static_files]
-"/images/*" = "/images/*"
-"/fonts/*" = "/fonts/*"
-
+# R2存儲桶配置
 [[r2_buckets]]
 binding = "STORAGE"
 bucket_name = "10massage-storage" 
