@@ -4,6 +4,22 @@
   "exclude": [],
   "routes": [
     {
+      "src": "/masseurs",
+      "dest": "/masseurs"
+    },
+    {
+      "src": "/services",
+      "dest": "/services"
+    },
+    {
+      "src": "/dashboard",
+      "dest": "/dashboard"
+    },
+    {
+      "src": "/init",
+      "dest": "/init"
+    },
+    {
       "src": "/(.*)",
       "dest": "/$1"
     }

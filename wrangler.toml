@@ -2,8 +2,8 @@ name = "10massage"
 compatibility_date = "2023-05-18"
 compatibility_flags = ["nodejs_compat"]
 
-# 直接使用.next目錄，不使用standalone
-pages_build_output_dir = ".next"
+# 直接使用標準輸出目錄，不進行自定義設置
+# 刪除 pages_build_output_dir，讓Cloudflare自動檢測
 
 # D1數據庫配置
 [[d1_databases]]
