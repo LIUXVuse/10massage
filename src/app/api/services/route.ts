@@ -24,7 +24,7 @@ export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
     const id = searchParams.get("id");
-    const public = searchParams.get("public");
+    const isPublic = searchParams.get("public");
     const active = searchParams.get("active");
     const category = searchParams.get("category");
     const details = searchParams.get("details");
@@ -44,7 +44,7 @@ export async function GET(request: Request) {
     }
     
     // 如果要求活躍服務或公開服務，則只返回活躍的
-    if (active === "true" || public === "true") {
+    if (active === "true" || isPublic === "true") {
       where.active = true;
     }
     
@@ -54,7 +54,7 @@ export async function GET(request: Request) {
     }
 
     // 對於公開API請求，篩選僅當前有效的限時優惠和閃購服務
-    if (public === "true") {
+    if (isPublic === "true") {
       const now = new Date();
       
       // 使用OR條件：常規服務 或 當前有效的限時優惠 或 當前有效的閃購
@@ -122,11 +122,23 @@ export async function GET(request: Request) {
     // 轉換結果為前端友好格式
     const formattedServices = services.map((service) => {
       // 提取按摩師信息
-      const masseurs = service.masseurs.map((ms) => ({
-        id: ms.masseur.id,
-        name: ms.masseur.name,
-        avatar: ms.masseur.avatar,
-      }));
+      const masseurs = service.masseurs.map((ms) => {
+        // 檢查 masseur 屬性是否存在
+        if (ms.masseur) {
+          return {
+            id: ms.masseur.id,
+            name: ms.masseur.name,
+            avatar: ms.masseur.avatar,
+          };
+        } else {
+          // 如果沒有 masseur 屬性，假設是直接關聯的 masseur 對象
+          return {
+            id: ms.id,
+            name: ms.name,
+            avatar: ms.image || null, // masseur 表中使用 image 而不是 avatar
+          };
+        }
+      });
 
       // 返回格式化服務對象
       return {
