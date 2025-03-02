@@ -100,21 +100,38 @@ export default function ServicesPage() {
         : "/api/services";
       const method = selectedService ? "PUT" : "POST";
 
+      // 確保數據格式正確
+      const formattedData = {
+        ...data,
+        durations: data.durations.map((d: any) => ({
+          duration: Number(d.duration),
+          price: Number(d.price)
+        })),
+        recommendOrder: Number(data.recommendOrder)
+      };
+
+      console.log("提交服務數據:", JSON.stringify(formattedData, null, 2));
+
       const response = await fetch(url, {
         method,
         headers: {
           "Content-Type": "application/json",
         },
-        body: JSON.stringify(data),
+        body: JSON.stringify(formattedData),
       });
 
-      if (!response.ok) throw new Error("Failed to save service");
+      if (!response.ok) {
+        const errorData = await response.json();
+        console.error("服務保存錯誤:", errorData);
+        throw new Error(errorData.error || "保存服務失敗");
+      }
 
       setIsEditing(false);
       setSelectedService(null);
       fetchServices();
     } catch (error) {
       console.error("Error saving service:", error);
+      alert(error instanceof Error ? error.message : "保存服務失敗，請檢查數據格式並重試");
     }
   };
 

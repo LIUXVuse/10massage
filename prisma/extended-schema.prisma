@@ -1,0 +1,211 @@
+datasource db {
+  provider = "postgresql"
+  url      = env("NEON_POSTGRES_PRISMA_URL")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// 現有模型
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  password      String
+  phone         String?
+  emailVerified DateTime?
+  image         String?
+  role          String    @default("user")
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @updatedAt
+  appointments  Appointment[]
+}
+
+model Masseur {
+  id          String   @id @default(cuid())
+  name        String
+  image       String?
+  imageScale  Float?   @default(1.0)
+  imageX      Float?   @default(0.0)
+  imageY      Float?   @default(0.0)
+  cropX       Float?
+  cropY       Float?
+  cropWidth   Float?
+  cropHeight  Float?
+  description String?
+  experience  Int      @default(0)
+  isActive    Boolean  @default(true)
+  sortOrder   Int      @default(999)
+  services    Service[]
+  workTimes   MasseurWorkTime[]
+  appointments Appointment[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 按摩師工作時間表
+model MasseurWorkTime {
+  id          String   @id @default(cuid())
+  masseur     Masseur  @relation(fields: [masseurId], references: [id], onDelete: Cascade)
+  masseurId   String
+  dayOfWeek   Int      // 0-6，代表週日至週六
+  startTime   String   // 格式為 "HH:MM"
+  endTime     String   // 格式為 "HH:MM"
+  isAvailable Boolean  @default(true)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 預約模型
+model Appointment {
+  id          String   @id @default(cuid())
+  user        User     @relation(fields: [userId], references: [id])
+  userId      String
+  masseur     Masseur  @relation(fields: [masseurId], references: [id])
+  masseurId   String
+  service     Service  @relation(fields: [serviceId], references: [id])
+  serviceId   String
+  duration    Int      // 服務時長（分鐘）
+  price       Float    // 當時的價格
+  date        DateTime // 預約日期
+  startTime   String   // 開始時間 "HH:MM"
+  endTime     String   // 結束時間 "HH:MM"
+  status      String   @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED
+  notes       String?  // 客戶備註
+  adminNotes  String?  // 管理員備註
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  // 關聯服務選項和加價項目
+  selectedOptions ServiceOptionSelection[]
+  selectedBodyParts BodyPartSelection[]
+  selectedAddons AddonSelection[]
+}
+
+// 基本服務模型 (保留向後兼容)
+model Service {
+  id              String            @id @default(cuid())
+  name            String
+  description     String?
+  price           Float             // 基本價格 (向後兼容)
+  duration        Int               // 基本時長 (向後兼容)
+  type            String            @default("SINGLE") // SINGLE, COMBO
+  category        String            @default("MASSAGE") // MASSAGE, CARE, TREATMENT
+  isActive        Boolean           @default(true)
+  isRecommend     Boolean           @default(false)
+  recommendOrder  Int               @default(0)
+  
+  // 關聯
+  masseurs        Masseur[]
+  durations       ServiceDuration[] // 服務的多時長價格選項
+  bodyParts       ServiceBodyPart[] // 服務的身體部位價格選項
+  addons          ServiceAddon[]    // 服務的加價選項
+  options         ServiceOption[]   // 套餐中的可選項目
+  includedServices ServiceInclusion[] // 套餐包含的服務
+  appointments    Appointment[]
+  
+  // 套餐相關
+  maxSelections   Int?              // 套餐中最多可選的服務數量
+  
+  // 時間戳
+  createdAt       DateTime          @default(now())
+  updatedAt       DateTime          @updatedAt
+}
+
+// 服務時長與價格表 (支持性別差異定價)
+model ServiceDuration {
+  id        String   @id @default(cuid())
+  duration  Int      // 時長（分鐘）
+  price     Float    // 此時長的價格
+  gender    String?  // 性別特定價格：MALE, FEMALE, null表示適用所有
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 服務身體部位與價格表
+model ServiceBodyPart {
+  id        String   @id @default(cuid())
+  name      String   // 部位名稱
+  price     Float    // 此部位的價格
+  duration  Int      // 預計所需時間（分鐘）
+  gender    String?  // 性別限制：MALE, FEMALE, null表示適用所有
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId String
+  selections BodyPartSelection[]
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+}
+
+// 服務加價選項表
+model ServiceAddon {
+  id          String   @id @default(cuid())
+  name        String   // 選項名稱
+  price       Float    // 額外價格
+  duration    Int      // 額外所需時間（分鐘）
+  description String?  // 選項描述
+  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId   String
+  selections  AddonSelection[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 套餐中的可選項目
+model ServiceOption {
+  id          String   @id @default(cuid())
+  name        String   // 選項名稱
+  description String?  // 選項描述
+  duration    Int      // 所需時間（分鐘）
+  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId   String
+  selections  ServiceOptionSelection[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+}
+
+// 套餐包含的服務關聯
+model ServiceInclusion {
+  id                String   @id @default(cuid())
+  parentService     Service  @relation(fields: [parentServiceId], references: [id], onDelete: Cascade)
+  parentServiceId   String
+  includedServiceId String   // 包含的服務ID
+  duration          Int      // 在套餐中的時長
+  isRequired        Boolean  @default(true) // 是否必選
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+}
+
+// 預約中選擇的身體部位
+model BodyPartSelection {
+  id            String        @id @default(cuid())
+  appointment   Appointment   @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  appointmentId String
+  bodyPart      ServiceBodyPart @relation(fields: [bodyPartId], references: [id])
+  bodyPartId    String
+  price         Float         // 選擇時的價格
+  createdAt     DateTime      @default(now())
+}
+
+// 預約中選擇的加價選項
+model AddonSelection {
+  id            String        @id @default(cuid())
+  appointment   Appointment   @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  appointmentId String
+  addon         ServiceAddon  @relation(fields: [addonId], references: [id])
+  addonId       String
+  price         Float         // 選擇時的價格
+  createdAt     DateTime      @default(now())
+}
+
+// 預約中選擇的服務選項
+model ServiceOptionSelection {
+  id            String        @id @default(cuid())
+  appointment   Appointment   @relation(fields: [appointmentId], references: [id], onDelete: Cascade)
+  appointmentId String
+  option        ServiceOption @relation(fields: [optionId], references: [id])
+  optionId      String
+  createdAt     DateTime      @default(now())
+} 

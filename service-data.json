@@ -1,0 +1,244 @@
+{
+  "serviceCategories": [
+    {
+      "name": "頭療課程",
+      "description": "專業頭部護理與按摩療程",
+      "services": [
+        {
+          "id": "head-therapy-standard",
+          "name": "標準頭療課程",
+          "description": "包含頭部、臉部、髮浴和按摩的完整療程",
+          "basePrice": 1500,
+          "baseDuration": 60,
+          "type": "SINGLE",
+          "category": "TREATMENT",
+          "steps": [
+            {
+              "name": "頭部",
+              "procedures": ["精油嗅吸", "頭部精油", "木梳頭皮", "頭部按筋", "頭部深層按摩"]
+            },
+            {
+              "name": "臉部",
+              "procedures": ["洗臉", "臉部去角質", "蘆薈敷臉", "臉部按筋", "臉部清潔"]
+            },
+            {
+              "name": "髮浴",
+              "procedures": ["頭皮去角質", "葉綠素去頭味", "洗髮", "頭部按摩", "頸部按摩", "燈光水循環", "前胸按摩", "肩膀按摩", "吹乾"]
+            },
+            {
+              "name": "按摩",
+              "procedures": ["燈光水循環", "手部按摩", "腿部按摩"]
+            }
+          ],
+          "durations": [
+            {
+              "duration": 60,
+              "price": 1500
+            }
+          ],
+          "masseurs": ["all"]
+        }
+      ]
+    },
+    {
+      "name": "熱蠟美肌淨毛",
+      "description": "專業脫毛服務，依性別和部位提供差異化定價",
+      "services": [
+        {
+          "id": "brazilian-wax",
+          "name": "巴西式私密處全除",
+          "description": "專業巴西式脫毛服務，徹底清除私密處毛髮",
+          "type": "SINGLE",
+          "category": "CARE",
+          "genderPricing": true,
+          "durations": [
+            {
+              "duration": 60,
+              "price": 2500,
+              "gender": "female"
+            },
+            {
+              "duration": 60,
+              "price": 2700,
+              "gender": "male"
+            }
+          ],
+          "masseurs": ["琳", "雷", "萱"]
+        },
+        {
+          "id": "body-wax",
+          "name": "身體部位脫毛",
+          "description": "針對不同身體部位的專業脫毛服務",
+          "type": "SINGLE",
+          "category": "CARE",
+          "bodyPartPricing": true,
+          "bodyParts": [
+            {"name": "全腿", "price": 2500, "duration": 60},
+            {"name": "全手", "price": 2000, "duration": 45},
+            {"name": "腹部", "price": 1500, "duration": 30},
+            {"name": "鬍子", "price": 1500, "duration": 30},
+            {"name": "腋下", "price": 799, "duration": 20},
+            {"name": "肛周", "price": 799, "duration": 20},
+            {"name": "上手", "price": 1000, "duration": 25},
+            {"name": "下手", "price": 1000, "duration": 25},
+            {"name": "小腿", "price": 1000, "duration": 25},
+            {"name": "大腿", "price": 1500, "duration": 30},
+            {"name": "胸部", "price": 1500, "duration": 30}
+          ],
+          "addons": [
+            {"name": "鼻毛", "price": 200, "duration": 10},
+            {"name": "乳頭毛", "price": 200, "duration": 10},
+            {"name": "髡角毛", "price": 200, "duration": 10},
+            {"name": "手指頭", "price": 200, "duration": 10},
+            {"name": "腳趾頭", "price": 200, "duration": 10},
+            {"name": "肚臍毛", "price": 200, "duration": 10}
+          ],
+          "masseurs": ["琳", "雷", "萱"]
+        }
+      ]
+    },
+    {
+      "name": "中式課程方案",
+      "description": "傳統中式按摩療程及套餐",
+      "services": [
+        {
+          "id": "chinese-single",
+          "name": "中式單項服務",
+          "description": "傳統中式按摩及護理單項服務",
+          "type": "SINGLE",
+          "category": "MASSAGE",
+          "variations": [
+            {"name": "中式指壓", "price": 1200, "duration": 60},
+            {"name": "精油按摩", "price": 1200, "duration": 60},
+            {"name": "腳底按摩", "price": 1000, "duration": 60},
+            {"name": "艾草溫罐", "price": 1300, "duration": 60},
+            {"name": "耳燭課程", "price": 1300, "duration": 60},
+            {"name": "頭療髮浴", "price": 1500, "duration": 60},
+            {"name": "嫩白去角質", "price": 1500, "duration": 50}
+          ],
+          "masseurs": ["all"]
+        },
+        {
+          "id": "chinese-vitality",
+          "name": "中式元氣",
+          "description": "120分鐘中式元氣套餐，含基礎課程與自選項目",
+          "type": "COMBO",
+          "category": "MASSAGE",
+          "basePrice": 2000,
+          "baseDuration": 120,
+          "baseServices": ["深層指壓", "精油按摩"],
+          "freeOptions": {
+            "selectCount": 2,
+            "options": ["經絡刮痧", "循環體刷", "嫩白去角質", "頭部按筋", "芳香耳燭", "拉筋伸展"]
+          },
+          "masseurs": ["all"]
+        },
+        {
+          "id": "head-to-toe",
+          "name": "從頭到腳",
+          "description": "全身按摩加腳底按摩的組合套餐",
+          "type": "COMBO",
+          "category": "MASSAGE",
+          "price": 2000,
+          "duration": 120,
+          "includedServices": [
+            {"name": "身體按摩", "duration": 60},
+            {"name": "腳底按摩", "duration": 60}
+          ],
+          "masseurs": ["all"]
+        },
+        {
+          "id": "warm-detox",
+          "name": "溫暖排濕",
+          "description": "全身按摩加艾草溫罐的組合套餐",
+          "type": "COMBO",
+          "category": "MASSAGE",
+          "price": 2300,
+          "duration": 120,
+          "includedServices": [
+            {"name": "身體按摩", "duration": 60},
+            {"name": "艾草溫罐", "duration": 60}
+          ],
+          "masseurs": ["all"]
+        },
+        {
+          "id": "head-release",
+          "name": "頭壓解放",
+          "description": "全身按摩加頭療髮浴的組合套餐",
+          "type": "COMBO",
+          "category": "MASSAGE",
+          "price": 2500,
+          "duration": 120,
+          "includedServices": [
+            {"name": "身體按摩", "duration": 60},
+            {"name": "頭療髮浴", "duration": 60}
+          ],
+          "masseurs": ["all"]
+        }
+      ]
+    },
+    {
+      "name": "泰式能量課程",
+      "description": "傳統泰式按摩及能量療程",
+      "services": [
+        {
+          "id": "royal-thai",
+          "name": "泰皇密宗課程",
+          "description": "由專業泰式按摩師提供的高級能量按摩",
+          "type": "SINGLE",
+          "category": "MASSAGE",
+          "variations": [
+            {"name": "龍筋/鳳筋 (60分鐘)", "price": 3000, "duration": 60, "note": "皆無身體按摩"},
+            {"name": "龍筋/鳳筋 (80分鐘)", "price": 3600, "duration": 80, "note": "可搭配其他課程"}
+          ],
+          "timeExtension": {"duration": 30, "price": 1500},
+          "masseurs": ["方真JOY"]
+        },
+        {
+          "id": "court-program",
+          "name": "宮廷課程",
+          "description": "60分鐘泰式能量按摩",
+          "type": "SINGLE",
+          "category": "MASSAGE",
+          "price": 2000,
+          "duration": 60,
+          "note": "無身體按摩",
+          "masseurs": ["琳", "雷", "杉", "萱"]
+        },
+        {
+          "id": "noble-program",
+          "name": "貴族課程",
+          "description": "泰式能量加身體按摩的組合",
+          "type": "COMBO",
+          "category": "MASSAGE",
+          "price": 2000,
+          "duration": 90,
+          "includedServices": [
+            {"name": "泰式能量", "duration": 30},
+            {"name": "身體按摩", "duration": 60}
+          ],
+          "masseurs": ["琳", "雷", "杉", "萱"]
+        },
+        {
+          "id": "royal-program",
+          "name": "御用課程",
+          "description": "完整的泰式能量和身體按摩組合",
+          "type": "COMBO",
+          "category": "MASSAGE",
+          "price": 2700,
+          "duration": 120,
+          "includedServices": [
+            {"name": "泰式能量", "duration": 60},
+            {"name": "身體按摩", "duration": 60}
+          ],
+          "timeExtensionOptions": [
+            {"name": "身體按摩", "duration": 30, "price": 700},
+            {"name": "泰式能量", "duration": 30, "price": 1000}
+          ],
+          "masseurs": ["琳", "雷", "杉", "萱"]
+        }
+      ],
+      "specialNotes": "方真JOY指導老師於泰國專業受訓擁有泰國雙證，無色情服務。操作部位：腹部、鼠蹊部、陰囊、會陰與肛門周邊。不會碰觸到外生殖器、無侵入手法、非治療行為。"
+    }
+  ]
+} 
