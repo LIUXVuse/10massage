@@ -8,7 +8,7 @@ export const runtime = 'nodejs';
 export const revalidate = 3600; // 每小時重新驗證一次
 
 // 檢查用戶是否為管理員
-async function isAdmin(request: Request) {
+async function isAdmin() {
   try {
     const authOptions = await getAuthOptions();
     const session = await getServerSession(authOptions);
@@ -23,548 +23,720 @@ async function isAdmin(request: Request) {
 export async function GET(request: Request) {
   try {
     const { searchParams } = new URL(request.url);
-    const publicOnly = searchParams.get('public') === 'true';
-    const activeOnly = searchParams.get('active') === 'true';
-    const withDetails = searchParams.get('details') === 'true';
-    const withInactive = searchParams.get('withInactive') === 'true';
+    const id = searchParams.get("id");
+    const public = searchParams.get("public");
+    const active = searchParams.get("active");
+    const category = searchParams.get("category");
+    const details = searchParams.get("details");
+    const withInactive = searchParams.get("withInactive");
 
-    // 只獲取有效服務
-    let whereClause: any = {};
+    // 根據查詢參數構建查詢條件
+    let where: any = {};
     
-    // 如果有這個參數，包括非活動狀態
-    if (!withInactive) {
-      whereClause.isActive = true;
+    // 如果指定了ID，則查詢特定服務
+    if (id) {
+      where.id = id;
     }
     
-    // 檢查是否為管理員
-    const userIsAdmin = await isAdmin(request);
+    // 如果指定了分類，則按分類過濾
+    if (category) {
+      where.category = category;
+    }
     
-    // 如果不是管理員或者明確要求只顯示公開服務
-    if (publicOnly || !userIsAdmin) {
-      // 檢查今天日期是否在限定期間內
-      const today = new Date();
-      today.setHours(0, 0, 0, 0); // 設置為當天的00:00:00
+    // 如果要求活躍服務或公開服務，則只返回活躍的
+    if (active === "true" || public === "true") {
+      where.active = true;
+    }
+    
+    // 如果不是特別要求包含非活躍服務，則只返回活躍的
+    if (withInactive !== "true" && active !== "false") {
+      where.active = true;
+    }
+
+    // 對於公開API請求，篩選僅當前有效的限時優惠和閃購服務
+    if (public === "true") {
+      const now = new Date();
       
-      // 創建查詢條件: 非期間限定 或 在有效期內的期間限定
-      whereClause = {
-        ...whereClause,
-        OR: [
-          { isLimitedTime: false },
-          {
-            isLimitedTime: true,
-            limitedStartDate: { lte: today },
-            limitedEndDate: { gte: today }
-          }
-        ]
+      // 使用OR條件：常規服務 或 當前有效的限時優惠 或 當前有效的閃購
+      where.OR = [
+        // 常規服務 (非限時優惠且非閃購)
+        {
+          isLimitedTime: false,
+          isFlashSale: false,
+        },
+        // 當前有效的限時優惠
+        {
+          isLimitedTime: true,
+          limitedTimeStart: { lte: now },
+          limitedTimeEnd: { gte: now },
+        },
+        // 當前有效的閃購
+        {
+          isFlashSale: true,
+          flashSaleStart: { lte: now },
+          flashSaleEnd: { gte: now },
+        },
+      ];
+    }
+
+    // 構建包含標準關聯的查詢
+    const include: any = {
+      durations: true,
+      masseurs: {
+        include: {
+          masseur: true,
+        },
+      },
+    };
+    
+    // 如果需要詳細信息，則包含其他關聯數據
+    if (details === "true") {
+      include.genderPrices = true;
+      include.areaPrices = true;
+      include.addons = true;
+      include.packageItems = true;
+      include.packageOptions = {
+        include: {
+          items: true,
+        },
       };
     }
-    
-    // 獲取服務列表
+
+    // 執行查詢
     const services = await prisma.service.findMany({
-      where: whereClause,
-      include: {
-        masseurs: {
-          select: {
-            id: true,
-            name: true,
-            image: true,
-            isActive: true
-          }
-        },
-        durations: {
-          orderBy: {
-            duration: 'asc'
-          }
-        }
+      where,
+      include,
+      orderBy: {
+        createdAt: "desc",
       },
-      orderBy: [
-        { isRecommend: 'desc' },
-        { createdAt: 'desc' }
-      ]
     });
-    
-    return NextResponse.json(services);
+
+    // 如果查詢特定ID但找不到結果，則返回404
+    if (id && services.length === 0) {
+      return NextResponse.json(
+        { error: "找不到指定服務" },
+        { status: 404 }
+      );
+    }
+
+    // 轉換結果為前端友好格式
+    const formattedServices = services.map((service) => {
+      // 提取按摩師信息
+      const masseurs = service.masseurs.map((ms) => ({
+        id: ms.masseur.id,
+        name: ms.masseur.name,
+        avatar: ms.masseur.avatar,
+      }));
+
+      // 返回格式化服務對象
+      return {
+        ...service,
+        masseurs,
+        // 移除原始按摩師關聯數據
+        masseursRelations: undefined,
+      };
+    });
+
+    return NextResponse.json(formattedServices);
   } catch (error) {
-    console.error('獲取服務列表失敗:', error);
-    return NextResponse.json({ error: '獲取服務列表失敗' }, { status: 500 });
+    console.error("獲取服務失敗:", error);
+    return NextResponse.json(
+      { error: "獲取服務時發生錯誤" },
+      { status: 500 }
+    );
   }
 }
 
 // 創建新服務 - 僅管理員可訪問
 export async function POST(request: Request) {
   try {
-    // 檢查是否為管理員
-    if (!await isAdmin(request)) {
-      console.log('非管理員嘗試創建服務')
-      return NextResponse.json({ error: '未授權訪問，僅管理員可以創建服務' }, { status: 403 });
+    // 檢查用戶是否為管理員
+    if (!await isAdmin()) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    console.log('POST服務API接收的數據:', JSON.stringify(body, null, 2));
+    const data = await request.json();
     
-    const {
-      name,
-      description,
-      price,
-      duration,
-      type,
-      category,
-      isRecommended,
-      recommendOrder,
-      // 期間限定相關字段
-      isLimitedTime,
-      limitedStartDate,
-      limitedEndDate,
-      limitedSpecialPrice,
-      limitedDiscountPercent,
-      limitedNote,
-      // 快閃方案相關字段
-      isFlashSale,
-      flashSaleNote,
-      // 關聯資料
-      masseurs,
-      durations,
-    } = body;
-
-    // 如果提供了durations數組，使用第一個duration的值作為默認值
-    const servicePrice = price || (durations && durations.length > 0 ? durations[0].price : 0);
-    const serviceDuration = duration || (durations && durations.length > 0 ? durations[0].duration : 0);
-
-    if (!servicePrice) {
-      console.log('缺少價格參數');
-      return NextResponse.json({ error: '缺少價格(price)參數' }, { status: 400 });
-    }
-
-    if (!serviceDuration) {
-      console.log('缺少時長參數');
-      return NextResponse.json({ error: '缺少時長(duration)參數' }, { status: 400 });
-    }
-
-    // 檢查價格和時長是否為有效數字
-    if (isNaN(Number(servicePrice)) || Number(servicePrice) <= 0) {
-      console.log('無效的價格:', servicePrice);
-      return NextResponse.json({ error: '價格必須是大於0的數字' }, { status: 400 });
-    }
-
-    if (isNaN(Number(serviceDuration)) || Number(serviceDuration) <= 0) {
-      console.log('無效的時長:', serviceDuration);
-      return NextResponse.json({ error: '時長必須是大於0的整數' }, { status: 400 });
-    }
-
-    // 驗證durations數組
-    if (durations) {
-      const invalidDurations = durations.filter((d: any) => 
-        isNaN(Number(d.duration)) || Number(d.duration) <= 0 || 
-        isNaN(Number(d.price)) || Number(d.price) <= 0
+    // 驗證必填字段
+    if (!data.name || !data.duration || data.price === undefined) {
+      return NextResponse.json(
+        { error: "必須提供服務名稱、時長和價格" },
+        { status: 400 }
       );
-      
-      if (invalidDurations.length > 0) {
-        console.log('發現無效的時長價格選項:', invalidDurations);
-        return NextResponse.json({ 
-          error: '所有時長必須是大於0的整數，價格必須是大於0的數字',
-          invalidItems: invalidDurations 
-        }, { status: 400 });
+    }
+
+    // 檢查服務類型並進行相應的驗證
+    let serviceType = "standard";
+    
+    // 檢查是否為性別定價服務
+    if (data.genderPrices?.length > 0) {
+      serviceType = "genderPricing";
+      // 驗證性別定價數據
+      if (!data.genderPrices.every((gp: any) => gp.gender && gp.price !== undefined)) {
+        return NextResponse.json(
+          { error: "性別定價服務必須提供性別和價格" },
+          { status: 400 }
+        );
       }
     }
     
-    // 檢查期間限定相關參數
-    if (isLimitedTime) {
-      if (!limitedStartDate || !limitedEndDate) {
-        console.log('期間限定服務缺少開始或結束日期');
-        return NextResponse.json({ error: '期間限定服務必須提供開始和結束日期' }, { status: 400 });
-      }
-      
-      const startDate = new Date(limitedStartDate);
-      const endDate = new Date(limitedEndDate);
-      
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        console.log('期間限定日期格式無效');
-        return NextResponse.json({ error: '期間限定日期格式無效' }, { status: 400 });
-      }
-      
-      if (endDate <= startDate) {
-        console.log('期間限定結束日期不能早於開始日期');
-        return NextResponse.json({ error: '期間限定結束日期必須晚於開始日期' }, { status: 400 });
-      }
-      
-      // 檢查特價或折扣至少要有一個
-      if (limitedDiscountPercent === undefined && limitedSpecialPrice === undefined) {
-        console.log('期間限定缺少折扣百分比或特價');
-        return NextResponse.json({ error: '期間限定必須提供折扣百分比或特價' }, { status: 400 });
-      }
-      
-      // 檢查折扣百分比有效性
-      if (limitedDiscountPercent !== undefined && limitedDiscountPercent !== null) {
-        const percent = Number(limitedDiscountPercent);
-        if (isNaN(percent) || percent < 0 || percent > 100) {
-          console.log('折扣百分比無效:', limitedDiscountPercent);
-          return NextResponse.json({ error: '折扣百分比必須在0到100之間' }, { status: 400 });
-        }
-      }
-      
-      // 檢查特價有效性
-      if (limitedSpecialPrice !== undefined && limitedSpecialPrice !== null) {
-        const specialPrice = Number(limitedSpecialPrice);
-        if (isNaN(specialPrice) || specialPrice < 0) {
-          console.log('特價無效:', limitedSpecialPrice);
-          return NextResponse.json({ error: '特價必須是大於0的數字' }, { status: 400 });
-        }
+    // 檢查是否為區域定價服務
+    if (data.areaPrices?.length > 0) {
+      serviceType = "areaPricing";
+      // 驗證區域定價數據
+      if (!data.areaPrices.every((ap: any) => ap.area && ap.price !== undefined)) {
+        return NextResponse.json(
+          { error: "區域定價服務必須提供區域名稱和價格" },
+          { status: 400 }
+        );
       }
     }
     
-    // 檢查快閃方案相關參數
-    if (isFlashSale) {
-      if (!limitedStartDate || !limitedEndDate) {
-        console.log('快閃方案缺少開始或結束日期');
-        return NextResponse.json({ error: '快閃方案必須提供開始和結束日期' }, { status: 400 });
-      }
-      
-      const startDate = new Date(limitedStartDate);
-      const endDate = new Date(limitedEndDate);
-      
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        console.log('快閃方案日期格式無效');
-        return NextResponse.json({ error: '快閃方案日期格式無效' }, { status: 400 });
-      }
-      
-      if (endDate <= startDate) {
-        console.log('快閃方案結束日期不能早於開始日期');
-        return NextResponse.json({ error: '快閃方案結束日期必須晚於開始日期' }, { status: 400 });
+    // 檢查是否為套餐服務
+    if (data.packageItems?.length > 0) {
+      serviceType = "package";
+      // 驗證套餐數據
+      if (!data.packageItems.every((item: any) => 
+        item.serviceId && item.serviceName && item.duration)
+      ) {
+        return NextResponse.json(
+          { error: "套餐服務必須提供服務ID、名稱和時長" },
+          { status: 400 }
+        );
       }
     }
 
-    try {
-      // 使用事務處理確保數據一致性
-      const result = await prisma.$transaction(async (tx) => {
-        // 創建服務
-        const service = await tx.service.create({
-          data: {
-            name,
-            description: description || '',
-            price: parseFloat(servicePrice.toString()),
-            duration: parseInt(serviceDuration.toString()),
-            type: type || 'SINGLE',
-            category: category || 'MASSAGE',
-            isActive: true,
-            isRecommend: isRecommended || false,
-            // 期間限定相關字段
-            isLimitedTime: isLimitedTime || false,
-            limitedStartDate: isLimitedTime ? new Date(limitedStartDate) : null,
-            limitedEndDate: isLimitedTime ? new Date(limitedEndDate) : null,
-            limitedSpecialPrice: isLimitedTime && limitedSpecialPrice !== undefined ? 
-              parseFloat(limitedSpecialPrice.toString()) : null,
-            limitedDiscountPercent: isLimitedTime && limitedDiscountPercent !== undefined ? 
-              parseInt(limitedDiscountPercent.toString()) : null,
-            limitedNote: isLimitedTime ? limitedNote || null : null,
-            // 快閃方案相關字段
-            isFlashSale: isFlashSale || false,
-            flashSaleNote: isFlashSale ? flashSaleNote || null : null,
-            // 設置按摩師關聯
-            ...(masseurs ? {
-              masseurs: {
-                connect: masseurs.map((m: { id: string }) => ({ id: m.id }))
-              }
-            } : {})
-          }
-        });
+    // 檢查限時優惠邏輯
+    if (data.isLimitedTime) {
+      if (!data.limitedTimeStart || !data.limitedTimeEnd) {
+        return NextResponse.json(
+          { error: "限時優惠必須提供開始和結束時間" },
+          { status: 400 }
+        );
+      }
+      
+      const startDate = new Date(data.limitedTimeStart);
+      const endDate = new Date(data.limitedTimeEnd);
+      
+      if (endDate < startDate) {
+        return NextResponse.json(
+          { error: "限時優惠結束時間必須晚於開始時間" },
+          { status: 400 }
+        );
+      }
+    }
 
-        // 創建服務時長
-        if (durations && durations.length > 0) {
-          for (const d of durations) {
-            await tx.serviceDuration.create({
-              data: {
-                duration: parseInt(d.duration.toString()),
-                price: parseFloat(d.price.toString()),
-                serviceId: service.id
-              }
-            });
-          }
-        }
+    // 檢查閃購邏輯
+    if (data.isFlashSale) {
+      if (!data.flashSaleStart || !data.flashSaleEnd) {
+        return NextResponse.json(
+          { error: "閃購必須提供開始和結束時間" },
+          { status: 400 }
+        );
+      }
+      
+      const startDate = new Date(data.flashSaleStart);
+      const endDate = new Date(data.flashSaleEnd);
+      
+      if (endDate < startDate) {
+        return NextResponse.json(
+          { error: "閃購結束時間必須晚於開始時間" },
+          { status: 400 }
+        );
+      }
+    }
 
-        return service;
+    // 處理服務創建
+    const result = await prisma.$transaction(async (tx) => {
+      // 創建基本服務
+      const service = await tx.service.create({
+        data: {
+          name: data.name,
+          description: data.description,
+          image: data.image,
+          category: data.category,
+          duration: parseInt(data.duration),
+          price: parseFloat(data.price),
+          isLimitedTime: data.isLimitedTime || false,
+          limitedTimeStart: data.limitedTimeStart ? new Date(data.limitedTimeStart) : null,
+          limitedTimeEnd: data.limitedTimeEnd ? new Date(data.limitedTimeEnd) : null,
+          limitedSpecialPrice: data.limitedSpecialPrice,
+          limitedDiscountPercent: data.limitedDiscountPercent,
+          limitedNote: data.limitedNote,
+          isFlashSale: data.isFlashSale || false,
+          flashSaleStart: data.flashSaleStart ? new Date(data.flashSaleStart) : null,
+          flashSaleEnd: data.flashSaleEnd ? new Date(data.flashSaleEnd) : null,
+          flashSaleNote: data.flashSaleNote,
+          active: data.active !== undefined ? data.active : true,
+        },
       });
 
-      console.log('服務創建成功:', result.id);
-      return NextResponse.json(result);
-    } catch (dbError) {
-      console.error('創建服務失敗:', dbError);
-      return NextResponse.json({ 
-        error: `創建服務失敗: ${dbError instanceof Error ? dbError.message : '未知錯誤'}`,
-        details: process.env.NODE_ENV === 'development' ? (dbError instanceof Error ? dbError.stack : undefined) : undefined
-      }, { status: 500 });
-    }
+      // 處理多時長選項
+      if (data.durations && data.durations.length > 0) {
+        await Promise.all(
+          data.durations.map((duration: any) =>
+            tx.serviceDuration.create({
+              data: {
+                serviceId: service.id,
+                duration: parseInt(duration.duration),
+                price: parseFloat(duration.price),
+              },
+            })
+          )
+        );
+      }
+
+      // 處理按摩師關聯
+      if (data.masseursIds && data.masseursIds.length > 0) {
+        await Promise.all(
+          data.masseursIds.map((masseursId: string) =>
+            tx.masseurService.create({
+              data: {
+                serviceId: service.id,
+                masseurId: masseursId,
+              },
+            })
+          )
+        );
+      }
+      
+      // 處理性別定價
+      if (serviceType === "genderPricing" && data.genderPrices?.length > 0) {
+        await Promise.all(
+          data.genderPrices.map((genderPrice: any) =>
+            tx.serviceGenderPrice.create({
+              data: {
+                serviceId: service.id,
+                gender: genderPrice.gender,
+                price: parseFloat(genderPrice.price),
+                serviceName: genderPrice.serviceName || null,
+              },
+            })
+          )
+        );
+      }
+      
+      // 處理區域定價
+      if (serviceType === "areaPricing" && data.areaPrices?.length > 0) {
+        await Promise.all(
+          data.areaPrices.map((areaPrice: any) =>
+            tx.serviceAreaPrice.create({
+              data: {
+                serviceId: service.id,
+                area: areaPrice.area,
+                price: parseFloat(areaPrice.price),
+                gender: areaPrice.gender || null,
+                description: areaPrice.description || null,
+              },
+            })
+          )
+        );
+      }
+      
+      // 處理附加選項
+      if (data.addons?.length > 0) {
+        await Promise.all(
+          data.addons.map((addon: any) =>
+            tx.serviceAddon.create({
+              data: {
+                serviceId: service.id,
+                name: addon.name,
+                description: addon.description || null,
+                price: parseFloat(addon.price),
+                isRequired: addon.isRequired || false,
+              },
+            })
+          )
+        );
+      }
+      
+      // 處理套餐項目
+      if (serviceType === "package" && data.packageItems?.length > 0) {
+        await Promise.all(
+          data.packageItems.map((item: any) =>
+            tx.packageItem.create({
+              data: {
+                serviceId: service.id,
+                includedServiceId: item.serviceId,
+                serviceName: item.serviceName,
+                duration: parseInt(item.duration),
+                isRequired: item.isRequired || true,
+              },
+            })
+          )
+        );
+      }
+      
+      // 處理套餐選項
+      if (serviceType === "package" && data.packageOptions?.length > 0) {
+        await Promise.all(
+          data.packageOptions.map(async (option: any) => {
+            const packageOption = await tx.packageOption.create({
+              data: {
+                serviceId: service.id,
+                name: option.name,
+                description: option.description || null,
+                maxSelections: option.maxSelections || 1,
+              },
+            });
+            
+            // 處理選項項目
+            if (option.items?.length > 0) {
+              await Promise.all(
+                option.items.map((item: any) =>
+                  tx.packageOptionItem.create({
+                    data: {
+                      optionId: packageOption.id,
+                      name: item.name,
+                    },
+                  })
+                )
+              );
+            }
+          })
+        );
+      }
+
+      return service;
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
-    console.error('創建服務失敗:', error);
-    return NextResponse.json({ 
-      error: `創建服務失敗: ${error instanceof Error ? error.message : '未知錯誤'}`,
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined
-    }, { status: 500 });
+    console.error("創建服務失敗:", error);
+    return NextResponse.json(
+      { error: "創建服務時發生錯誤" },
+      { status: 500 }
+    );
   }
 }
 
 // 更新服務 - 僅管理員可訪問
 export async function PUT(request: Request) {
   try {
-    // 檢查是否為管理員
-    if (!await isAdmin(request)) {
-      console.log('非管理員嘗試更新服務')
-      return NextResponse.json({ error: '未授權訪問，僅管理員可以更新服務' }, { status: 403 });
+    // 檢查用戶是否為管理員
+    if (!await isAdmin()) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const body = await request.json();
-    console.log('PUT服務API接收的數據:', JSON.stringify(body, null, 2));
+    const data = await request.json();
     
-    const {
-      id,
-      name,
-      description,
-      price,
-      duration,
-      type,
-      category,
-      isRecommended,
-      recommendOrder,
-      // 期間限定相關字段
-      isLimitedTime,
-      limitedStartDate,
-      limitedEndDate,
-      limitedSpecialPrice,
-      limitedDiscountPercent,
-      limitedNote,
-      // 快閃方案相關字段
-      isFlashSale,
-      flashSaleNote,
-      // 關聯資料
-      masseurs,
-      durations,
-    } = body;
-
-    if (!id) {
-      console.log('缺少服務ID');
-      return NextResponse.json({ error: '缺少服務ID' }, { status: 400 });
-    }
-
-    // 如果提供了durations數組，使用第一個duration的值作為默認值
-    const servicePrice = price || (durations && durations.length > 0 ? durations[0].price : 0);
-    const serviceDuration = duration || (durations && durations.length > 0 ? durations[0].duration : 0);
-
-    if (!servicePrice) {
-      console.log('缺少價格參數');
-      return NextResponse.json({ error: '缺少價格(price)參數' }, { status: 400 });
-    }
-
-    if (!serviceDuration) {
-      console.log('缺少時長參數');
-      return NextResponse.json({ error: '缺少時長(duration)參數' }, { status: 400 });
-    }
-
-    // 檢查價格和時長是否為有效數字
-    if (isNaN(Number(servicePrice)) || Number(servicePrice) <= 0) {
-      console.log('無效的價格:', servicePrice);
-      return NextResponse.json({ error: '價格必須是大於0的數字' }, { status: 400 });
-    }
-
-    if (isNaN(Number(serviceDuration)) || Number(serviceDuration) <= 0) {
-      console.log('無效的時長:', serviceDuration);
-      return NextResponse.json({ error: '時長必須是大於0的整數' }, { status: 400 });
-    }
-
-    // 驗證durations數組
-    if (durations) {
-      const invalidDurations = durations.filter((d: any) => 
-        isNaN(Number(d.duration)) || Number(d.duration) <= 0 || 
-        isNaN(Number(d.price)) || Number(d.price) <= 0
+    // 驗證必填字段
+    if (!data.id || !data.name || !data.duration || data.price === undefined) {
+      return NextResponse.json(
+        { error: "必須提供服務ID、名稱、時長和價格" },
+        { status: 400 }
       );
-      
-      if (invalidDurations.length > 0) {
-        console.log('發現無效的時長價格選項:', invalidDurations);
-        return NextResponse.json({ 
-          error: '所有時長必須是大於0的整數，價格必須是大於0的數字',
-          invalidItems: invalidDurations 
-        }, { status: 400 });
-      }
-    }
-    
-    // 檢查期間限定相關參數
-    if (isLimitedTime) {
-      if (!limitedStartDate || !limitedEndDate) {
-        console.log('期間限定服務缺少開始或結束日期');
-        return NextResponse.json({ error: '期間限定服務必須提供開始和結束日期' }, { status: 400 });
-      }
-      
-      const startDate = new Date(limitedStartDate);
-      const endDate = new Date(limitedEndDate);
-      
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        console.log('期間限定日期格式無效');
-        return NextResponse.json({ error: '期間限定日期格式無效' }, { status: 400 });
-      }
-      
-      if (endDate <= startDate) {
-        console.log('期間限定結束日期不能早於開始日期');
-        return NextResponse.json({ error: '期間限定結束日期必須晚於開始日期' }, { status: 400 });
-      }
-      
-      // 檢查特價或折扣至少要有一個
-      if (limitedDiscountPercent === undefined && limitedSpecialPrice === undefined) {
-        console.log('期間限定缺少折扣百分比或特價');
-        return NextResponse.json({ error: '期間限定必須提供折扣百分比或特價' }, { status: 400 });
-      }
-      
-      // 檢查折扣百分比有效性
-      if (limitedDiscountPercent !== undefined && limitedDiscountPercent !== null) {
-        const percent = Number(limitedDiscountPercent);
-        if (isNaN(percent) || percent < 0 || percent > 100) {
-          console.log('折扣百分比無效:', limitedDiscountPercent);
-          return NextResponse.json({ error: '折扣百分比必須在0到100之間' }, { status: 400 });
-        }
-      }
-      
-      // 檢查特價有效性
-      if (limitedSpecialPrice !== undefined && limitedSpecialPrice !== null) {
-        const specialPrice = Number(limitedSpecialPrice);
-        if (isNaN(specialPrice) || specialPrice < 0) {
-          console.log('特價無效:', limitedSpecialPrice);
-          return NextResponse.json({ error: '特價必須是大於0的數字' }, { status: 400 });
-        }
-      }
-    }
-    
-    // 檢查快閃方案相關參數
-    if (isFlashSale) {
-      if (!limitedStartDate || !limitedEndDate) {
-        console.log('快閃方案缺少開始或結束日期');
-        return NextResponse.json({ error: '快閃方案必須提供開始和結束日期' }, { status: 400 });
-      }
-      
-      const startDate = new Date(limitedStartDate);
-      const endDate = new Date(limitedEndDate);
-      
-      if (isNaN(startDate.getTime()) || isNaN(endDate.getTime())) {
-        console.log('快閃方案日期格式無效');
-        return NextResponse.json({ error: '快閃方案日期格式無效' }, { status: 400 });
-      }
-      
-      if (endDate <= startDate) {
-        console.log('快閃方案結束日期不能早於開始日期');
-        return NextResponse.json({ error: '快閃方案結束日期必須晚於開始日期' }, { status: 400 });
-      }
     }
 
-    // 確認服務存在
+    // 檢查服務是否存在
     const existingService = await prisma.service.findUnique({
-      where: { id }
+      where: { id: data.id },
     });
 
     if (!existingService) {
-      console.log('服務不存在:', id);
-      return NextResponse.json({ error: '指定的服務不存在' }, { status: 404 });
+      return NextResponse.json(
+        { error: "找不到指定服務" },
+        { status: 404 }
+      );
     }
 
-    console.log('更新服務:', {
-      id,
-      name,
-      price: servicePrice,
-      duration: serviceDuration,
-      isRecommended,
-      isLimitedTime,
-      isFlashSale
-    });
+    // 檢查服務類型並進行相應的驗證
+    let serviceType = "standard";
+    
+    // 檢查是否為性別定價服務
+    if (data.genderPrices?.length > 0) {
+      serviceType = "genderPricing";
+      // 驗證性別定價數據
+      if (!data.genderPrices.every((gp: any) => gp.gender && gp.price !== undefined)) {
+        return NextResponse.json(
+          { error: "性別定價服務必須提供性別和價格" },
+          { status: 400 }
+        );
+      }
+    }
+    
+    // 檢查是否為區域定價服務
+    if (data.areaPrices?.length > 0) {
+      serviceType = "areaPricing";
+      // 驗證區域定價數據
+      if (!data.areaPrices.every((ap: any) => ap.area && ap.price !== undefined)) {
+        return NextResponse.json(
+          { error: "區域定價服務必須提供區域名稱和價格" },
+          { status: 400 }
+        );
+      }
+    }
+    
+    // 檢查是否為套餐服務
+    if (data.packageItems?.length > 0) {
+      serviceType = "package";
+      // 驗證套餐數據
+      if (!data.packageItems.every((item: any) => 
+        item.serviceId && item.serviceName && item.duration)
+      ) {
+        return NextResponse.json(
+          { error: "套餐服務必須提供服務ID、名稱和時長" },
+          { status: 400 }
+        );
+      }
+    }
 
-    try {
-      // 使用事務處理確保數據一致性
-      const result = await prisma.$transaction(async (tx) => {
-        // 如果提供了durations數組，先刪除所有現有時長，然後重新創建
-        if (durations && durations.length > 0) {
-          await tx.serviceDuration.deleteMany({
-            where: { serviceId: id }
-          });
+    // 檢查限時優惠邏輯
+    if (data.isLimitedTime) {
+      if (!data.limitedTimeStart || !data.limitedTimeEnd) {
+        return NextResponse.json(
+          { error: "限時優惠必須提供開始和結束時間" },
+          { status: 400 }
+        );
+      }
+      
+      const startDate = new Date(data.limitedTimeStart);
+      const endDate = new Date(data.limitedTimeEnd);
+      
+      if (endDate < startDate) {
+        return NextResponse.json(
+          { error: "限時優惠結束時間必須晚於開始時間" },
+          { status: 400 }
+        );
+      }
+    }
 
-          // 獲取要保留的durations id列表
-          const durationsToKeep = durations
-            .filter((d: any) => d.id)
-            .map((d: any) => d.id);
+    // 檢查閃購邏輯
+    if (data.isFlashSale) {
+      if (!data.flashSaleStart || !data.flashSaleEnd) {
+        return NextResponse.json(
+          { error: "閃購必須提供開始和結束時間" },
+          { status: 400 }
+        );
+      }
+      
+      const startDate = new Date(data.flashSaleStart);
+      const endDate = new Date(data.flashSaleEnd);
+      
+      if (endDate < startDate) {
+        return NextResponse.json(
+          { error: "閃購結束時間必須晚於開始時間" },
+          { status: 400 }
+        );
+      }
+    }
 
-          console.log(`刪除服務 ${id} 的時長，將重新創建 ${durations.length} 個時長`);
-
-          // 創建新的durations
-          for (const d of durations) {
-            await tx.serviceDuration.create({
-              data: {
-                duration: parseInt(d.duration.toString()),
-                price: parseFloat(d.price.toString()),
-                serviceId: id
-              }
-            });
-          }
-        }
-
-        // 更新服務基本資訊
-        const updatedService = await tx.service.update({
-          where: { id },
-          data: {
-            name,
-            description: description || '',
-            price: parseFloat(servicePrice.toString()),
-            duration: parseInt(serviceDuration.toString()),
-            type: type || 'SINGLE',
-            category: category || 'MASSAGE',
-            isRecommend: isRecommended || false,
-            // 期間限定相關字段
-            isLimitedTime: isLimitedTime || false,
-            limitedStartDate: isLimitedTime ? new Date(limitedStartDate) : null,
-            limitedEndDate: isLimitedTime ? new Date(limitedEndDate) : null,
-            limitedSpecialPrice: isLimitedTime && limitedSpecialPrice !== undefined ? 
-              parseFloat(limitedSpecialPrice.toString()) : null,
-            limitedDiscountPercent: isLimitedTime && limitedDiscountPercent !== undefined ? 
-              parseInt(limitedDiscountPercent.toString()) : null,
-            limitedNote: isLimitedTime ? limitedNote || null : null,
-            // 快閃方案相關字段
-            isFlashSale: isFlashSale || false,
-            flashSaleNote: isFlashSale ? flashSaleNote || null : null,
-            // 如果提供了masseurs數組，則更新關聯
-            ...(masseurs ? {
-              masseurs: {
-                set: [], // 清除所有現有關聯
-                connect: masseurs.map((m: { id: string }) => ({ id: m.id }))
-              }
-            } : {}),
-          },
-          include: {
-            masseurs: true,
-            durations: true
-          }
-        });
-
-        return updatedService;
+    // 處理服務更新
+    const result = await prisma.$transaction(async (tx) => {
+      // 更新基本服務信息
+      const service = await tx.service.update({
+        where: { id: data.id },
+        data: {
+          name: data.name,
+          description: data.description,
+          image: data.image,
+          category: data.category,
+          duration: parseInt(data.duration),
+          price: parseFloat(data.price),
+          isLimitedTime: data.isLimitedTime || false,
+          limitedTimeStart: data.limitedTimeStart ? new Date(data.limitedTimeStart) : null,
+          limitedTimeEnd: data.limitedTimeEnd ? new Date(data.limitedTimeEnd) : null,
+          limitedSpecialPrice: data.limitedSpecialPrice,
+          limitedDiscountPercent: data.limitedDiscountPercent,
+          limitedNote: data.limitedNote,
+          isFlashSale: data.isFlashSale || false,
+          flashSaleStart: data.flashSaleStart ? new Date(data.flashSaleStart) : null,
+          flashSaleEnd: data.flashSaleEnd ? new Date(data.flashSaleEnd) : null,
+          flashSaleNote: data.flashSaleNote,
+          active: data.active !== undefined ? data.active : true,
+        },
       });
 
-      console.log('服務更新成功:', result.id);
+      // 處理多時長選項：刪除舊的，添加新的
+      await tx.serviceDuration.deleteMany({
+        where: { serviceId: service.id },
+      });
+
+      if (data.durations && data.durations.length > 0) {
+        await Promise.all(
+          data.durations.map((duration: any) =>
+            tx.serviceDuration.create({
+              data: {
+                serviceId: service.id,
+                duration: parseInt(duration.duration),
+                price: parseFloat(duration.price),
+              },
+            })
+          )
+        );
+      }
+
+      // 處理按摩師關聯：刪除舊的，添加新的
+      await tx.masseurService.deleteMany({
+        where: { serviceId: service.id },
+      });
+
+      if (data.masseursIds && data.masseursIds.length > 0) {
+        await Promise.all(
+          data.masseursIds.map((masseursId: string) =>
+            tx.masseurService.create({
+              data: {
+                serviceId: service.id,
+                masseurId: masseursId,
+              },
+            })
+          )
+        );
+      }
       
-      return NextResponse.json(result);
-    } catch (dbError) {
-      console.error('更新服務失敗:', dbError);
-      return NextResponse.json({ 
-        error: `更新服務失敗: ${dbError instanceof Error ? dbError.message : '未知錯誤'}`,
-        details: process.env.NODE_ENV === 'development' ? (dbError instanceof Error ? dbError.stack : undefined) : undefined
-      }, { status: 500 });
-    }
+      // 處理性別定價：刪除舊的，添加新的
+      await tx.serviceGenderPrice.deleteMany({
+        where: { serviceId: service.id },
+      });
+      
+      if (serviceType === "genderPricing" && data.genderPrices?.length > 0) {
+        await Promise.all(
+          data.genderPrices.map((genderPrice: any) =>
+            tx.serviceGenderPrice.create({
+              data: {
+                serviceId: service.id,
+                gender: genderPrice.gender,
+                price: parseFloat(genderPrice.price),
+                serviceName: genderPrice.serviceName || null,
+              },
+            })
+          )
+        );
+      }
+      
+      // 處理區域定價：刪除舊的，添加新的
+      await tx.serviceAreaPrice.deleteMany({
+        where: { serviceId: service.id },
+      });
+      
+      if (serviceType === "areaPricing" && data.areaPrices?.length > 0) {
+        await Promise.all(
+          data.areaPrices.map((areaPrice: any) =>
+            tx.serviceAreaPrice.create({
+              data: {
+                serviceId: service.id,
+                area: areaPrice.area,
+                price: parseFloat(areaPrice.price),
+                gender: areaPrice.gender || null,
+                description: areaPrice.description || null,
+              },
+            })
+          )
+        );
+      }
+      
+      // 處理附加選項：刪除舊的，添加新的
+      await tx.serviceAddon.deleteMany({
+        where: { serviceId: service.id },
+      });
+      
+      if (data.addons?.length > 0) {
+        await Promise.all(
+          data.addons.map((addon: any) =>
+            tx.serviceAddon.create({
+              data: {
+                serviceId: service.id,
+                name: addon.name,
+                description: addon.description || null,
+                price: parseFloat(addon.price),
+                isRequired: addon.isRequired || false,
+              },
+            })
+          )
+        );
+      }
+      
+      // 處理套餐項目：刪除舊的，添加新的
+      await tx.packageItem.deleteMany({
+        where: { serviceId: service.id },
+      });
+      
+      if (serviceType === "package" && data.packageItems?.length > 0) {
+        await Promise.all(
+          data.packageItems.map((item: any) =>
+            tx.packageItem.create({
+              data: {
+                serviceId: service.id,
+                includedServiceId: item.serviceId,
+                serviceName: item.serviceName,
+                duration: parseInt(item.duration),
+                isRequired: item.isRequired || true,
+              },
+            })
+          )
+        );
+      }
+      
+      // 處理套餐選項：刪除舊的，添加新的
+      // 首先獲取所有現有的選項ID
+      const existingOptions = await tx.packageOption.findMany({
+        where: { serviceId: service.id },
+        select: { id: true },
+      });
+      
+      // 刪除每個選項的項目
+      await Promise.all(
+        existingOptions.map((option) =>
+          tx.packageOptionItem.deleteMany({
+            where: { optionId: option.id },
+          })
+        )
+      );
+      
+      // 刪除所有選項
+      await tx.packageOption.deleteMany({
+        where: { serviceId: service.id },
+      });
+      
+      // 添加新的選項和項目
+      if (serviceType === "package" && data.packageOptions?.length > 0) {
+        await Promise.all(
+          data.packageOptions.map(async (option: any) => {
+            const packageOption = await tx.packageOption.create({
+              data: {
+                serviceId: service.id,
+                name: option.name,
+                description: option.description || null,
+                maxSelections: option.maxSelections || 1,
+              },
+            });
+            
+            // 添加選項項目
+            if (option.items?.length > 0) {
+              await Promise.all(
+                option.items.map((item: any) =>
+                  tx.packageOptionItem.create({
+                    data: {
+                      optionId: packageOption.id,
+                      name: item.name,
+                    },
+                  })
+                )
+              );
+            }
+          })
+        );
+      }
+
+      return service;
+    });
+
+    return NextResponse.json(result);
   } catch (error) {
-    console.error('更新服務失敗:', error);
-    return NextResponse.json({ 
-      error: `更新服務失敗: ${error instanceof Error ? error.message : '未知錯誤'}`,
-      stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined
-    }, { status: 500 });
+    console.error("更新服務失敗:", error);
+    return NextResponse.json(
+      { error: "更新服務時發生錯誤" },
+      { status: 500 }
+    );
   }
 }
 
 // 刪除服務 - 僅管理員可訪問
 export async function DELETE(request: Request) {
   try {
-    // 檢查是否為管理員
-    if (!await isAdmin(request)) {
-      console.log('非管理員嘗試刪除服務')
-      return NextResponse.json({ error: '未授權訪問，僅管理員可以刪除服務' }, { status: 403 });
+    // 檢查用戶是否為管理員
+    if (!await isAdmin()) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     // 獲取要刪除的服務ID
