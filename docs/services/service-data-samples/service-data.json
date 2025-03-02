@@ -1,0 +1,382 @@
+{
+  "basicService": {
+    "id": "clrqw5xy10000g8ktz0p2ehrc",
+    "name": "基本按摩服務",
+    "description": "這是一個基本的按摩服務，適合放鬆和緩解壓力。",
+    "category": "按摩",
+    "isRecommended": true,
+    "recommendOrder": 1,
+    "durations": [
+      {
+        "id": "clrqw5xy10001g8ktz9n5f7h3",
+        "duration": 60,
+        "price": 1200
+      },
+      {
+        "id": "clrqw5xy10002g8kt3xc5h8j4",
+        "duration": 90,
+        "price": 1800
+      }
+    ],
+    "masseurs": [
+      {
+        "id": "clrqw5c960003g8kt7s2d4f5g",
+        "name": "張麗",
+        "gender": "female"
+      },
+      {
+        "id": "clrqw5c960004g8kt1s3e5g6h",
+        "name": "王強",
+        "gender": "male"
+      }
+    ]
+  },
+  "complexService": {
+    "id": "clrqw5xy10005g8ktp2q6j7k8",
+    "name": "豪華SPA套餐",
+    "description": "完整的SPA體驗，包括全身按摩、熱石療法和面部護理。",
+    "category": "SPA",
+    "isRecommended": true,
+    "recommendOrder": 2,
+    "durations": [
+      {
+        "id": "clrqw5xy10006g8kt4r7k8l9",
+        "duration": 120,
+        "price": 2800
+      },
+      {
+        "id": "clrqw5xy10007g8kt8s9m0n1",
+        "duration": 180,
+        "price": 4000
+      }
+    ],
+    "masseurs": [
+      {
+        "id": "clrqw5c960003g8kt7s2d4f5g",
+        "name": "張麗",
+        "gender": "female"
+      },
+      {
+        "id": "clrqw5c960008g8kt2t3f5g6h",
+        "name": "李靜",
+        "gender": "female"
+      },
+      {
+        "id": "clrqw5c960009g8kt6u7v8w9x",
+        "name": "陳偉",
+        "gender": "male"
+      }
+    ]
+  },
+  "futureExtendedService": {
+    "id": "clrqw5xy10010g8ktb3c4d5e6",
+    "name": "熱蠟美肌淨毛",
+    "description": "專業除毛服務，根據性別和身體部位提供不同價格。",
+    "category": "美容",
+    "isRecommended": false,
+    "recommendOrder": 0,
+    "durations": [
+      {
+        "id": "clrqw5xy10011g8kte5f6g7h8",
+        "duration": 60,
+        "price": 1500
+      }
+    ],
+    "masseurs": [
+      {
+        "id": "clrqw5c960012g8kti9j0k1l2",
+        "name": "吳琳",
+        "gender": "female"
+      },
+      {
+        "id": "clrqw5c960013g8ktm3n4o5p6",
+        "name": "趙雷",
+        "gender": "male"
+      },
+      {
+        "id": "clrqw5c960014g8ktq7r8s9t0",
+        "name": "林萱",
+        "gender": "female"
+      }
+    ],
+    "genderPrices": [
+      {
+        "id": "clrqw5xy10015g8ktu1v2w3x4",
+        "gender": "MALE",
+        "price": 2700,
+        "serviceName": "巴西式私密處全除"
+      },
+      {
+        "id": "clrqw5xy10016g8kty5z6a7b8",
+        "gender": "FEMALE",
+        "price": 2500,
+        "serviceName": "巴西式私密處全除"
+      }
+    ],
+    "areaPrices": [
+      {
+        "id": "clrqw5xy10017g8ktc9d0e1f2",
+        "areaName": "全腿",
+        "price": 2500
+      },
+      {
+        "id": "clrqw5xy10018g8ktg3h4i5j6",
+        "areaName": "腋下",
+        "price": 799
+      },
+      {
+        "id": "clrqw5xy10019g8ktk7l8m9n0",
+        "areaName": "胸部",
+        "price": 1500
+      }
+    ],
+    "addons": [
+      {
+        "id": "clrqw5xy10020g8kto1p2q3r4",
+        "name": "鼻毛",
+        "price": 200,
+        "isRequired": false
+      },
+      {
+        "id": "clrqw5xy10021g8kts5t6u7v8",
+        "name": "手指頭",
+        "price": 200,
+        "isRequired": false
+      }
+    ]
+  },
+  "futurePackageService": {
+    "id": "clrqw5xy10022g8ktw9x0y1z2",
+    "name": "中式元氣套餐",
+    "description": "120分鐘的基礎課程加上免費六選二附加項目。",
+    "category": "套餐",
+    "isRecommended": true,
+    "recommendOrder": 3,
+    "basePrice": 2000,
+    "duration": 120,
+    "baseServices": [
+      {
+        "id": "clrqw5xy10023g8kta3b4c5d6",
+        "serviceName": "深層指壓",
+        "duration": 60,
+        "isRequired": true
+      },
+      {
+        "id": "clrqw5xy10024g8kte7f8g9h0",
+        "serviceName": "精油按摩",
+        "duration": 60,
+        "isRequired": false
+      }
+    ],
+    "options": [
+      {
+        "id": "clrqw5xy10025g8kti1j2k3l4",
+        "name": "免費附加項目",
+        "maxSelections": 2,
+        "items": [
+          {
+            "id": "clrqw5xy10026g8ktm5n6o7p8",
+            "name": "經絡刮痧"
+          },
+          {
+            "id": "clrqw5xy10027g8ktq9r0s1t2",
+            "name": "循環體刷"
+          },
+          {
+            "id": "clrqw5xy10028g8ktu3v4w5x6",
+            "name": "嫩白去角質"
+          },
+          {
+            "id": "clrqw5xy10029g8kty7z8a9b0",
+            "name": "頭部按筋"
+          },
+          {
+            "id": "clrqw5xy10030g8ktc1d2e3f4",
+            "name": "芳香耳燭"
+          },
+          {
+            "id": "clrqw5xy10031g8ktg5h6i7j8",
+            "name": "拉筋伸展"
+          }
+        ]
+      }
+    ],
+    "masseurs": [
+      {
+        "id": "clrqw5c960032g8ktk9l0m1n2",
+        "name": "陳菁",
+        "gender": "female"
+      },
+      {
+        "id": "clrqw5c960033g8kto3p4q5r6",
+        "name": "張大明",
+        "gender": "male"
+      }
+    ]
+  },
+  "apiRequestExample": {
+    "POST": {
+      "endpoint": "/api/services",
+      "body": {
+        "name": "精油按摩",
+        "description": "使用進口精油的高級按摩服務",
+        "category": "按摩",
+        "isRecommended": true,
+        "recommendOrder": 3,
+        "durations": [
+          {
+            "duration": 60,
+            "price": 1500
+          },
+          {
+            "duration": 90,
+            "price": 2100
+          }
+        ],
+        "masseurIds": ["clrqw5c960003g8kt7s2d4f5g", "clrqw5c960004g8kt1s3e5g6h"]
+      }
+    },
+    "PUT": {
+      "endpoint": "/api/services",
+      "body": {
+        "id": "clrqw5xy10000g8ktz0p2ehrc",
+        "name": "高級按摩服務",
+        "description": "更新後的按摩服務描述",
+        "category": "高級按摩",
+        "isRecommended": false,
+        "recommendOrder": 0,
+        "durations": [
+          {
+            "id": "clrqw5xy10001g8ktz9n5f7h3",
+            "duration": 60,
+            "price": 1300
+          },
+          {
+            "duration": 120,
+            "price": 2400
+          }
+        ],
+        "masseurIds": ["clrqw5c960004g8kt1s3e5g6h"]
+      }
+    },
+    "DELETE": {
+      "endpoint": "/api/services?id=clrqw5xy10000g8ktz0p2ehrc"
+    }
+  },
+  "apiResponseExample": {
+    "GET": {
+      "status": 200,
+      "body": [
+        {
+          "id": "clrqw5xy10000g8ktz0p2ehrc",
+          "name": "基本按摩服務",
+          "description": "這是一個基本的按摩服務，適合放鬆和緩解壓力。",
+          "category": "按摩",
+          "isRecommended": true,
+          "recommendOrder": 1,
+          "durations": [
+            {
+              "id": "clrqw5xy10001g8ktz9n5f7h3",
+              "duration": 60,
+              "price": 1200,
+              "serviceId": "clrqw5xy10000g8ktz0p2ehrc"
+            },
+            {
+              "id": "clrqw5xy10002g8kt3xc5h8j4",
+              "duration": 90,
+              "price": 1800,
+              "serviceId": "clrqw5xy10000g8ktz0p2ehrc"
+            }
+          ],
+          "masseurs": [
+            {
+              "id": "clrqw5c960003g8kt7s2d4f5g",
+              "name": "張麗",
+              "gender": "female"
+            },
+            {
+              "id": "clrqw5c960004g8kt1s3e5g6h",
+              "name": "王強",
+              "gender": "male"
+            }
+          ]
+        }
+      ]
+    },
+    "POST": {
+      "status": 201,
+      "body": {
+        "id": "clrqw5xy10035g8kts7t8u9v0",
+        "name": "精油按摩",
+        "description": "使用進口精油的高級按摩服務",
+        "category": "按摩",
+        "isRecommended": true,
+        "recommendOrder": 3,
+        "durations": [
+          {
+            "id": "clrqw5xy10036g8ktw1x2y3z4",
+            "duration": 60,
+            "price": 1500,
+            "serviceId": "clrqw5xy10035g8kts7t8u9v0"
+          },
+          {
+            "id": "clrqw5xy10037g8kta5b6c7d8",
+            "duration": 90,
+            "price": 2100,
+            "serviceId": "clrqw5xy10035g8kts7t8u9v0"
+          }
+        ],
+        "masseurs": [
+          {
+            "id": "clrqw5c960003g8kt7s2d4f5g",
+            "name": "張麗",
+            "gender": "female"
+          },
+          {
+            "id": "clrqw5c960004g8kt1s3e5g6h",
+            "name": "王強",
+            "gender": "male"
+          }
+        ]
+      }
+    },
+    "PUT": {
+      "status": 200,
+      "body": {
+        "id": "clrqw5xy10000g8ktz0p2ehrc",
+        "name": "高級按摩服務",
+        "description": "更新後的按摩服務描述",
+        "category": "高級按摩",
+        "isRecommended": false,
+        "recommendOrder": 0,
+        "durations": [
+          {
+            "id": "clrqw5xy10001g8ktz9n5f7h3",
+            "duration": 60,
+            "price": 1300,
+            "serviceId": "clrqw5xy10000g8ktz0p2ehrc"
+          },
+          {
+            "id": "clrqw5xy10038g8kte9f0g1h2",
+            "duration": 120,
+            "price": 2400,
+            "serviceId": "clrqw5xy10000g8ktz0p2ehrc"
+          }
+        ],
+        "masseurs": [
+          {
+            "id": "clrqw5c960004g8kt1s3e5g6h",
+            "name": "王強",
+            "gender": "male"
+          }
+        ]
+      }
+    },
+    "DELETE": {
+      "status": 200,
+      "body": {
+        "message": "Service deleted successfully"
+      }
+    }
+  }
+} 
