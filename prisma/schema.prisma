@@ -21,42 +21,41 @@ model User {
 }
 
 model Masseur {
-  id          String   @id @default(cuid())
+  id          String     @id @default(cuid())
   name        String
   image       String?
-  imageScale  Float?   @default(1.0)
-  imageX      Float?   @default(0.0)
-  imageY      Float?   @default(0.0)
+  imageScale  Float?     @default(1.0)
+  imageX      Float?     @default(0.0)
+  imageY      Float?     @default(0.0)
   cropX       Float?
   cropY       Float?
   cropWidth   Float?
   cropHeight  Float?
   description String?
-  experience  Int      @default(0)
-  isActive    Boolean  @default(true)
-  sortOrder   Int      @default(999)
+  experience  Int        @default(0)
+  isActive    Boolean    @default(true)
+  sortOrder   Int        @default(999)
   services    Service[]
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime  @updatedAt
+  createdAt   DateTime   @default(now())
+  updatedAt   DateTime   @updatedAt
 }
 
 model Service {
   id          String            @id @default(cuid())
   name        String
   description String?
-  price       Float             // 基本價格
-  duration    Int               // 基本時長
+  price       Float              // 基本價格
+  duration    Int                // 基本時長
   type        String            @default("SINGLE")
   category    String            @default("MASSAGE")
   isActive    Boolean           @default(true)
   isRecommend Boolean           @default(false)
   masseurs    Masseur[]
-  durations   ServiceDuration[] // 新增：服務的多價格選項
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  durations   ServiceDuration[]  // 服務的多價格選項
+  createdAt   DateTime           @default(now())
+  updatedAt   DateTime           @updatedAt
 }
 
-// 新增服務時長與價格表
 model ServiceDuration {
   id        String   @id @default(cuid())
   duration  Int      // 時長（分鐘）
