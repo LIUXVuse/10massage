@@ -13,8 +13,8 @@ const nextConfig = {
     ],
     unoptimized: true
   },
-  // 強制使用尾部斜線，這對Cloudflare路由非常重要
-  trailingSlash: true,
+  // Vercel環境不需要強制使用尾部斜線
+  // trailingSlash: true,
   // 忽略構建錯誤
   typescript: {
     ignoreBuildErrors: true,
@@ -26,11 +26,10 @@ const nextConfig = {
   output: 'standalone',
   // 新增：禁用自動staticOptimization，由我們手動控制
   reactStrictMode: true,
-  swcMinify: true,
-  // 確保asset prefix正確
-  assetPrefix: process.env.NODE_ENV === 'production' ? 'https://10massage.pages.dev' : '',
-  // 禁用壓縮，讓Cloudflare處理
-  compress: false,
+  // 確保asset prefix正確 - 使用環境變數以適應不同部署環境
+  assetPrefix: process.env.NEXT_PUBLIC_ASSET_PREFIX || '',
+  // Vercel會自動處理壓縮，不需要禁用
+  // compress: false,
   // 啟用實驗性功能
   experimental: {
     appDocumentPreloading: true,
