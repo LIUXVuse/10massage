@@ -23,6 +23,13 @@ export async function GET() {
             name: true,
             image: true
           }
+        },
+        durations: {
+          select: {
+            id: true,
+            duration: true,
+            price: true
+          }
         }
       },
       orderBy: {
@@ -59,7 +66,7 @@ export async function POST(request: Request) {
       durations,
     } = body;
 
-    // 如果提供了durations數組，使用第一個duration的值
+    // 如果提供了durations數組，使用第一個duration的值作為默認值
     const servicePrice = price || (durations && durations.length > 0 ? durations[0].price : 0);
     const serviceDuration = duration || (durations && durations.length > 0 ? durations[0].duration : 0);
 
@@ -71,22 +78,48 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: '缺少時長(duration)參數' }, { status: 400 });
     }
 
+    // 創建服務及其時長價格選項
     const service = await prisma.service.create({
       data: {
         name,
         description,
-        price: parseFloat(servicePrice),
-        duration: parseInt(serviceDuration),
+        price: parseFloat(servicePrice.toString()),
+        duration: parseInt(serviceDuration.toString()),
         type: type || 'SINGLE',
         category: category || 'MASSAGE',
         isRecommend: isRecommended || false,
         masseurs: {
           connect: masseurs?.map((m: any) => ({ id: m.id })) || []
         }
+      },
+      include: {
+        masseurs: true
       }
     });
 
-    return NextResponse.json(service);
+    // 如果提供了多個時長價格選項，添加它們
+    if (durations && durations.length > 0) {
+      for (const d of durations) {
+        await prisma.serviceDuration.create({
+          data: {
+            duration: parseInt(d.duration.toString()),
+            price: parseFloat(d.price.toString()),
+            serviceId: service.id
+          }
+        });
+      }
+    }
+
+    // 獲取完整的服務資訊（包括新增的時長）
+    const completeService = await prisma.service.findUnique({
+      where: { id: service.id },
+      include: {
+        masseurs: true,
+        durations: true
+      }
+    });
+
+    return NextResponse.json(completeService);
   } catch (error) {
     console.error('創建服務失敗:', error);
     return NextResponse.json({ error: `創建服務失敗: ${error}` }, { status: 500 });
@@ -116,7 +149,7 @@ export async function PUT(request: Request) {
       durations,
     } = body;
 
-    // 如果提供了durations數組，使用第一個duration的值
+    // 如果提供了durations數組，使用第一個duration的值作為默認值
     const servicePrice = price || (durations && durations.length > 0 ? durations[0].price : 0);
     const serviceDuration = duration || (durations && durations.length > 0 ? durations[0].duration : 0);
 
@@ -131,21 +164,24 @@ export async function PUT(request: Request) {
     // 先獲取服務的當前按摩師
     const currentService = await prisma.service.findUnique({
       where: { id },
-      include: { masseurs: true }
+      include: { 
+        masseurs: true,
+        durations: true 
+      }
     });
 
     if (!currentService) {
       return NextResponse.json({ error: '找不到服務' }, { status: 404 });
     }
 
-    // 更新服務
+    // 更新服務基本資訊和按摩師關聯
     const service = await prisma.service.update({
       where: { id },
       data: {
         name,
         description,
-        price: parseFloat(servicePrice),
-        duration: parseInt(serviceDuration),
+        price: parseFloat(servicePrice.toString()),
+        duration: parseInt(serviceDuration.toString()),
         type,
         category,
         isRecommend: isRecommended,
@@ -158,7 +194,35 @@ export async function PUT(request: Request) {
       }
     });
 
-    return NextResponse.json(service);
+    // 更新服務時長價格選項
+    if (durations && durations.length > 0) {
+      // 刪除所有舊的時長價格選項
+      await prisma.serviceDuration.deleteMany({
+        where: { serviceId: id }
+      });
+
+      // 創建新的時長價格選項
+      for (const d of durations) {
+        await prisma.serviceDuration.create({
+          data: {
+            duration: parseInt(d.duration.toString()),
+            price: parseFloat(d.price.toString()),
+            serviceId: id
+          }
+        });
+      }
+    }
+
+    // 獲取更新後的完整服務資訊
+    const updatedService = await prisma.service.findUnique({
+      where: { id },
+      include: {
+        masseurs: true,
+        durations: true
+      }
+    });
+
+    return NextResponse.json(updatedService);
   } catch (error) {
     console.error('更新服務失敗:', error);
     return NextResponse.json({ error: `更新服務失敗: ${error}` }, { status: 500 });
@@ -180,6 +244,7 @@ export async function DELETE(request: Request) {
       return NextResponse.json({ error: '缺少服務 ID' }, { status: 400 });
     }
 
+    // 刪除服務時，關聯的ServiceDuration會因為onDelete: Cascade自動刪除
     // 先斷開與按摩師的關聯，再刪除服務
     await prisma.service.update({
       where: { id },

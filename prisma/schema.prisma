@@ -41,16 +41,28 @@ model Masseur {
 }
 
 model Service {
-  id          String    @id @default(cuid())
+  id          String            @id @default(cuid())
   name        String
   description String?
-  price       Float
-  duration    Int
-  type        String    @default("general")
-  category    String    @default("massage")
-  isActive    Boolean   @default(true)
-  isRecommend Boolean   @default(false)
+  price       Float             // 基本價格
+  duration    Int               // 基本時長
+  type        String            @default("SINGLE")
+  category    String            @default("MASSAGE")
+  isActive    Boolean           @default(true)
+  isRecommend Boolean           @default(false)
   masseurs    Masseur[]
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
+  durations   ServiceDuration[] // 新增：服務的多價格選項
+  createdAt   DateTime          @default(now())
+  updatedAt   DateTime          @updatedAt
+}
+
+// 新增服務時長與價格表
+model ServiceDuration {
+  id        String   @id @default(cuid())
+  duration  Int      // 時長（分鐘）
+  price     Float    // 此時長的價格
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  serviceId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
 } 
