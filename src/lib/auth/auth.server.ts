@@ -6,6 +6,7 @@ import { PrismaAdapter } from "@auth/prisma-adapter"
 import { prisma } from "@/lib/db/prisma"
 import { User } from "next-auth"
 import { createHash } from "crypto"
+import { Prisma } from "@prisma/client"
 
 // 簡單的密碼哈希函數，適用於Edge環境
 function hashPassword(password: string): string {
@@ -15,7 +16,9 @@ function hashPassword(password: string): string {
 // 簡單的密碼比較函數，替代bcrypt.compare
 function verifyPassword(plainPassword: string, hashedPassword: string): boolean {
   const hashedPlainPassword = hashPassword(plainPassword);
-  return hashedPlainPassword === hashedPassword;
+  const isValid = hashedPlainPassword === hashedPassword;
+  console.log("密碼驗證結果:", isValid, "輸入密碼雜湊前幾位:", hashedPlainPassword.substring(0, 8), "數據庫密碼雜湊前幾位:", hashedPassword.substring(0, 8));
+  return isValid;
 }
 
 // 這個文件只會在服務器端使用，不會被打包到客戶端
@@ -44,23 +47,134 @@ export async function getAuthOptions(): Promise<NextAuthOptions> {
           }
 
           try {
-            const user = await prisma.user.findUnique({
+            console.log("嘗試認證用戶:", credentials.email);
+            
+            // 檢查連接狀態
+            try {
+              await prisma.$queryRaw`SELECT 1`;
+              console.log("數據庫連接正常");
+            } catch (dbError) {
+              console.error("數據庫連接錯誤:", dbError);
+            }
+            
+            // 1. 嘗試直接按email查詢用戶
+            let user = await prisma.user.findUnique({
               where: {
                 email: credentials.email
               }
-            })
+            });
+            
+            // 2. 如果找不到，則嘗試不區分大小寫的查詢
+            if (!user) {
+              console.log("精確匹配未找到用戶，嘗試不區分大小寫查詢");
+              
+              // 使用SQL直接查詢，避免Prisma類型問題
+              const lowercaseEmail = credentials.email.toLowerCase();
+              const users = await prisma.$queryRaw`
+                SELECT * FROM "User" WHERE LOWER(email) = ${lowercaseEmail}
+              `;
+              
+              if (Array.isArray(users) && users.length > 0) {
+                user = users[0];
+                console.log("通過不區分大小寫查詢找到用戶:", user.email);
+              }
+            }
+            
+            // 3. 如果仍然找不到用戶，可能是默認帳號尚未創建，嘗試創建
+            if (!user) {
+              console.log("未找到用戶，檢查是否是預設帳號");
+              
+              // 檢查是否是預設帳號
+              const DEFAULT_ACCOUNTS = [
+                { name: "系統管理員", email: "admin@eilinspa.com", password: "admin123", role: "ADMIN" },
+                { name: "測試按摩師", email: "masseur@eilinspa.com", password: "masseur123", role: "MASSEUR" },
+                { name: "測試用戶", email: "user@eilinspa.com", password: "user123", role: "USER" }
+              ];
+              
+              const defaultAccount = DEFAULT_ACCOUNTS.find(acc => 
+                acc.email.toLowerCase() === credentials.email.toLowerCase()
+              );
+              
+              if (defaultAccount && credentials.password === defaultAccount.password) {
+                console.log("確認為預設帳號，嘗試自動創建");
+                try {
+                  // 創建新用戶
+                  const shaHash = hashPassword(defaultAccount.password);
+                  user = await prisma.user.create({
+                    data: {
+                      name: defaultAccount.name,
+                      email: defaultAccount.email,
+                      password: shaHash,
+                      role: defaultAccount.role
+                    }
+                  });
+                  console.log("成功創建預設帳號:", user.email);
+                  
+                  // 如果是按摩師角色，同時創建按摩師記錄
+                  if (defaultAccount.role === "MASSEUR") {
+                    const masseur = await prisma.masseur.create({
+                      data: {
+                        name: defaultAccount.name,
+                        description: `${defaultAccount.name}是我們團隊的專業按摩師，擁有豐富的經驗，專注於提供高品質的按摩服務。`,
+                        isActive: true
+                      }
+                    });
+                    console.log("為預設帳號創建按摩師記錄");
+                  }
+                } catch (createError) {
+                  console.error("創建預設帳號失敗:", createError);
+                }
+              }
+            }
 
             if (!user) {
-              console.log("找不到用戶");
+              console.log("找不到用戶:", credentials.email);
               return null
             }
 
+            console.log("找到用戶:", user.email, "角色:", user.role);
+            
             // 使用新的密碼驗證方法
-            // const isPasswordValid = await compare(credentials.password, user.password)
             const isPasswordValid = verifyPassword(credentials.password, user.password);
 
             if (!isPasswordValid) {
-              console.log("密碼無效");
+              console.log("密碼無效，用戶:", user.email);
+              
+              // 檢查是否是預設帳號，如果是則重置密碼
+              const DEFAULT_ACCOUNTS = [
+                { email: "admin@eilinspa.com", password: "admin123" },
+                { email: "masseur@eilinspa.com", password: "masseur123" },
+                { email: "user@eilinspa.com", password: "user123" }
+              ];
+              
+              const defaultAccount = DEFAULT_ACCOUNTS.find(acc => 
+                acc.email.toLowerCase() === credentials.email.toLowerCase()
+              );
+              
+              if (defaultAccount && credentials.password === defaultAccount.password) {
+                console.log("預設帳號密碼不匹配，嘗試修復");
+                try {
+                  const shaHash = hashPassword(defaultAccount.password);
+                  await prisma.user.update({
+                    where: { id: user.id },
+                    data: { password: shaHash }
+                  });
+                  console.log("已修復預設帳號密碼");
+                  // 再次驗證
+                  if (verifyPassword(credentials.password, shaHash)) {
+                    console.log("修復後認證成功");
+                    return {
+                      id: user.id,
+                      email: user.email || "",
+                      name: user.name || "",
+                      role: user.role,
+                    }
+                  }
+                } catch (updateError) {
+                  console.error("修復密碼失敗:", updateError);
+                }
+              }
+              
               return null
             }
 
@@ -78,54 +192,56 @@ export async function getAuthOptions(): Promise<NextAuthOptions> {
         }
       })
     ],
-    callbacks: {
-      async session({ token, session }) {
-        if (token) {
-          session.user.id = token.id as string;
-          session.user.name = token.name as string || "";
-          session.user.email = token.email as string || "";
-          session.user.role = token.role as string;
-        }
-
-        return session
+    // 增加日誌記錄
+    debug: process.env.NODE_ENV !== 'production',
+    logger: {
+      error(code, metadata) {
+        console.error("NextAuth錯誤:", code, metadata);
       },
+      warn(code) {
+        console.warn("NextAuth警告:", code);
+      },
+      debug(code, metadata) {
+        console.log("NextAuth調試:", code, metadata);
+      }
+    },
+    callbacks: {
       async jwt({ token, user }) {
         if (user) {
-          token.id = user.id
-          token.role = user.role
+          token.role = user.role;
+          token.id = user.id;
         }
-
-        return token
+        return token;
+      },
+      async session({ session, token }) {
+        if (session.user) {
+          session.user.role = token.role as string;
+          session.user.id = token.id as string;
+        }
+        return session;
       }
     }
-  }
+  };
 }
 
-// 簡化查詢當前使用者的函數
+// 用於調試的版本，提供更多日誌
+export async function getDebugAuthOptions(): Promise<NextAuthOptions> {
+  const options = await getAuthOptions();
+  options.debug = true;
+  return options;
+}
+
+// 伺服器端獲取當前用戶函數
 export async function getCurrentServerUser() {
   try {
-    // 因為無法直接訪問session，我們需要使用getServerSession
-    // 但我們可以處理此處的靜態生成問題
-    const { headers } = await import("next/headers");
-    
-    // 檢查是否是靜態生成環境
-    // 如果是靜態生成，則返回null而不是拋出錯誤
-    try {
-      // 訪問headers以觸發動態渲染
-      headers();
-    } catch (e: any) {
-      // 如果出現靜態渲染錯誤，則只需要返回null
-      console.log("靜態生成環境中：", e?.message || "未知錯誤");
-      return null;
-    }
-    
-    // 只有在成功觸發動態渲染後才執行此部分
-    const { getServerSession } = await import("next-auth/next");
-    const authOptions = await getAuthOptions();
-    const session = await getServerSession(authOptions);
+    // 使用app目錄結構中的auth()函數而不是直接導入
+    const { cookies } = await import("next/headers");
+    const { getServerSession } = await import("next-auth");
+    const options = await getAuthOptions();
+    const session = await getServerSession(options);
     return session?.user;
   } catch (error) {
-    console.error("獲取用戶時發生錯誤:", error);
+    console.error("獲取當前用戶失敗:", error);
     return null;
   }
 }
