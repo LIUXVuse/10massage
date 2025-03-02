@@ -1,9 +1,12 @@
 import { NextResponse } from 'next/server';
-import { prisma } from '@/lib/db/prisma';
+import { PrismaClient } from '@prisma/client';
 import { getToken } from 'next-auth/jwt';
 
-// 支持Cloudflare Pages和Prisma
-export const runtime = 'nodejs'; // 從'edge'改為'nodejs'，以支持Prisma
+// 初始化Prisma客戶端
+const prisma = new PrismaClient();
+
+// 支持Node.js運行時
+export const runtime = 'nodejs';
 export const revalidate = 3600; // 每小時重新驗證一次
 
 // 檢查用戶是否為管理員
@@ -15,6 +18,7 @@ async function isAdmin(request: Request) {
 // 獲取服務列表 - 公開API，所有用戶可以訪問
 export async function GET() {
   try {
+    // 獲取所有服務，包括關聯的按摩師和時長
     const services = await prisma.service.findMany({
       include: {
         masseurs: true,
@@ -91,7 +95,7 @@ export async function POST(request: Request) {
 
     // 驗證durations數組
     if (durations) {
-      const invalidDurations = durations.filter(d => 
+      const invalidDurations = durations.filter((d: any) => 
         isNaN(Number(d.duration)) || Number(d.duration) <= 0 || 
         isNaN(Number(d.price)) || Number(d.price) <= 0
       );
@@ -117,7 +121,7 @@ export async function POST(request: Request) {
     });
 
     try {
-      // 先創建基本服務
+      // 創建基本服務資訊（不包含時長）
       const service = await prisma.service.create({
         data: {
           name,
@@ -135,21 +139,20 @@ export async function POST(request: Request) {
 
       console.log('服務創建成功, ID:', service.id);
 
-      // 單獨添加服務時長
-      if (durations && durations.length > 0) {
-        for (const d of durations) {
-          await prisma.serviceDuration.create({
-            data: {
-              duration: parseInt(d.duration.toString()),
-              price: parseFloat(d.price.toString()),
-              serviceId: service.id
-            }
-          });
-        }
-        console.log(`已添加 ${durations.length} 個服務時長選項`);
+      // 分別創建每個服務時長
+      for (const d of durations) {
+        await prisma.serviceDuration.create({
+          data: {
+            duration: parseInt(d.duration.toString()),
+            price: parseFloat(d.price.toString()),
+            serviceId: service.id
+          }
+        });
       }
+      
+      console.log(`已添加 ${durations.length} 個服務時長選項`);
 
-      // 獲取完整的服務資訊（包括新增的時長）
+      // 查詢完整服務資訊（包含關聯資料）
       const completeService = await prisma.service.findUnique({
         where: { id: service.id },
         include: {
@@ -168,7 +171,6 @@ export async function POST(request: Request) {
     }
   } catch (error) {
     console.error('創建服務失敗:', error);
-    // 返回更詳細的錯誤訊息
     return NextResponse.json({ 
       error: `創建服務失敗: ${error instanceof Error ? error.message : '未知錯誤'}`,
       stack: process.env.NODE_ENV === 'development' ? (error instanceof Error ? error.stack : undefined) : undefined
@@ -233,7 +235,7 @@ export async function PUT(request: Request) {
 
     // 驗證durations數組
     if (durations) {
-      const invalidDurations = durations.filter(d => 
+      const invalidDurations = durations.filter((d: any) => 
         isNaN(Number(d.duration)) || Number(d.duration) <= 0 || 
         isNaN(Number(d.price)) || Number(d.price) <= 0
       );
@@ -270,7 +272,7 @@ export async function PUT(request: Request) {
 
     try {
       // 1. 更新服務基本資訊
-      const service = await prisma.service.update({
+      await prisma.service.update({
         where: { id },
         data: {
           name,

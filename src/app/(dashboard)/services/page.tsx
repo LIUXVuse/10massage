@@ -73,10 +73,49 @@ export default function ServicesPage() {
 
   const fetchServices = async () => {
     try {
+      console.log("開始獲取服務列表...");
       const response = await fetch("/api/services");
-      if (!response.ok) throw new Error("Failed to fetch services");
+      
+      if (!response.ok) {
+        console.error("服務列表獲取失敗:", response.status, response.statusText);
+        throw new Error("Failed to fetch services");
+      }
+      
       const data = await response.json();
-      setServices(data);
+      console.log("獲取到的服務數據:", data.length, "條記錄");
+      
+      // 檢查和轉換數據格式
+      const formattedServices = data.map(service => {
+        // 確保所有必要屬性存在
+        return {
+          id: service.id || "",
+          name: service.name || "",
+          description: service.description || "",
+          type: service.type || "SINGLE",
+          category: service.category || "MASSAGE",
+          isRecommended: !!service.isRecommend, // 轉換為布爾值
+          recommendOrder: service.recommendOrder || 0,
+          // 確保durations是數組
+          durations: Array.isArray(service.durations) 
+            ? service.durations.map(d => ({
+                id: d.id || "",
+                duration: d.duration || 0,
+                price: d.price || 0
+              }))
+            : [],
+          // 確保masseurs是數組並轉換格式
+          masseurs: Array.isArray(service.masseurs) 
+            ? service.masseurs.map(m => ({
+                masseur: {
+                  id: m.id || "",
+                  name: m.name || ""
+                }
+              }))
+            : []
+        };
+      });
+      
+      setServices(formattedServices);
     } catch (error) {
       console.error("Error fetching services:", error);
     }
@@ -95,6 +134,7 @@ export default function ServicesPage() {
 
   const handleSubmit = async (data: any) => {
     try {
+      console.log("準備提交服務數據:", data);
       const url = selectedService
         ? `/api/services/${selectedService.id}`
         : "/api/services";
@@ -107,7 +147,8 @@ export default function ServicesPage() {
           duration: Number(d.duration),
           price: Number(d.price)
         })),
-        recommendOrder: Number(data.recommendOrder)
+        recommendOrder: Number(data.recommendOrder || 0),
+        isRecommended: !!data.isRecommended
       };
 
       console.log("提交服務數據:", JSON.stringify(formattedData, null, 2));
@@ -125,6 +166,9 @@ export default function ServicesPage() {
         console.error("服務保存錯誤:", errorData);
         throw new Error(errorData.error || "保存服務失敗");
       }
+
+      const result = await response.json();
+      console.log("服務保存結果:", result);
 
       setIsEditing(false);
       setSelectedService(null);
