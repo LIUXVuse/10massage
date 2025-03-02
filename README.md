@@ -14,9 +14,8 @@
 - [功能特色](#功能特色)
 - [開發進度](#開發進度)
 - [管理員指南](#管理員指南)
-- [已知問題](#已知問題)
+- [已知問題與修復方法](#已知問題與修復方法)
 - [Vercel部署指南](#vercel部署指南)
-- [Cloudflare部署指南](#cloudflare部署指南)
 - [開發者文件](#開發者文件)
 - [問題回報](#問題回報)
 - [授權資訊](#授權資訊)
@@ -66,10 +65,15 @@ src/
 │   │   ├── services/               # 服務管理頁面 
 │   │   ├── users/                  # 用戶管理頁面
 │   │   └── layout.tsx              # 儀表板共用佈局
+│   ├── admin/                      # 系統管理功能
+│   │   └── repair/                 # 系統修復工具頁面
 │   ├── (site)/                     # 公開網站部分
 │   │   ├── masseurs/               # 公開按摩師列表
 │   │   └── services/               # 公開服務列表
 │   ├── api/                        # API 端點
+│   │   ├── admin/                  # 管理相關API
+│   │   │   ├── init-accounts/      # 初始化帳戶API
+│   │   │   └── repair-accounts/    # 修復帳戶API
 │   │   ├── auth/                   # 認證相關 API
 │   │   ├── masseurs/               # 按摩師 API
 │   │   ├── services/               # 服務 API
@@ -86,7 +90,7 @@ src/
 │   └── ui/                         # UI基礎組件
 ├── lib/                            # 工具函數和庫
 │   ├── auth/                       # 認證相關工具
-│   │   └── auth-utils.ts           # 權限檢查函數
+│   │   └── auth.server.ts          # 認證配置與密碼處理
 │   └── db/                         # 數據庫相關
 │       └── prisma.ts               # Prisma客戶端實例
 └── middleware.ts                   # Next.js中間件 (路由保護)
@@ -122,10 +126,10 @@ src/
   - 查看所有系統用戶
   - 角色權限分配 (管理員/按摩師/一般用戶)
   - 用戶狀態管理
-- **儀表板**:
-  - 系統運行狀態摘要
-  - 關鍵業務數據可視化
-  - 預約統計與分析
+- **系統工具**:
+  - 系統修復工具 (`/admin/repair`)
+  - 帳戶初始化工具
+  - 診斷與問題排除
 - **安全控制**:
   - 基於角色的訪問控制
   - 操作日誌與記錄
@@ -137,14 +141,23 @@ src/
 
 ## 📈 開發進度
 
-### 已完成功能 (2025/03/15)
-- **Cloudflare 部署優化**
-  - [x] 將系統成功部署到 Cloudflare Pages
-  - [x] 整合 Cloudflare D1 資料庫服務
-  - [x] 整合 Cloudflare R2 儲存服務
-  - [x] 優化構建過程，解決大型檔案問題
-  - [x] 設置適當的綁定，確保資源訪問權限
-  - [x] 記錄已知問題和解決方案
+### 已完成功能 (2025/03/03)
+- **系統修復工具優化**
+  - [x] 建立系統修復頁面 `/admin/repair`
+  - [x] 實現帳戶密碼雜湊一致化功能
+  - [x] 添加按摩師角色與資料關聯修復功能
+  - [x] 優化認證調試與錯誤追蹤
+  - [x] 提供詳細的修復結果報告
+  - [x] 更新說明文件以涵蓋已知問題與修復方法
+
+### 已完成功能 (2025/03/02)
+- **Vercel部署優化與Neon PostgreSQL整合**
+  - [x] 完整支援在Vercel平台部署專案
+  - [x] 提供詳細的Vercel部署指南
+  - [x] 解決常見部署問題的故障排除步驟
+  - [x] 添加對Neon Serverless PostgreSQL的支援
+  - [x] 優化Prisma配置以支援Neon資料庫
+  - [x] 資料庫遷移工具升級
 
 ### 已完成功能 (2025/03/01)
 - **按摩師管理功能全面優化**
@@ -172,7 +185,6 @@ src/
   - [x] 添加拖曳上傳圖片功能
   - [x] 修復認證系統在客戶端/服務器端的兼容性問題
   - [x] 改進按摩師與服務項目之間的關聯方式
-  - [x] 修復了Cloudflare部署中的多個問題
 - **用戶角色管理**
   - [x] 實現用戶角色管理界面
   - [x] 添加用戶管理頁面
@@ -250,6 +262,16 @@ src/
 
 ## 🔑 管理員指南
 
+### 初始化與維護
+1. **初始化管理員帳戶**
+   - 系統部署後，訪問 `/api/admin/init-accounts` 端點初始化管理員帳戶
+   - 預設管理員帳號: `admin@eilinspa.com` / 密碼: `admin123`
+
+2. **系統修復工具**
+   - 如遇到帳戶或角色問題，可訪問 `/admin/repair` 頁面
+   - 點擊「開始修復」按鈕，系統會自動修復已知問題
+   - 修復完成後，系統會顯示詳細的診斷報告
+
 ### 使用者角色管理
 1. **登入管理員帳戶**：使用管理員帳號登入系統
 2. **訪問用戶管理**：從主儀表板進入「用戶管理」頁面
@@ -296,33 +318,28 @@ src/
    - 縮放模式下可調整照片大小
    - 照片編輯參數會完整保存，確保顯示效果一致
 
-### 資料部署與遷移
-本地開發的資料可以順利遷移到Cloudflare生產環境：
-1. **本地數據庫**：SQLite用於本地開發
-2. **生產環境**：Cloudflare D1作為生產數據庫
-3. **遷移方式**：
-   - 使用`npx prisma migrate deploy`生成正確的SQL遷移檔案
-   - 將SQL遷移檔案導入Cloudflare D1
-   - 使用管理界面導入主要資料（如按摩師、服務項目）
-4. **部署命令**：
-   ```powershell
-   # 匯出資料庫結構
-   npx prisma migrate deploy
-   cat ./prisma/migrations/*/migration.sql > ./combined.sql
-   
-   # 將結構導入D1（記得加上--remote參數）
-   wrangler d1 execute 10massage-db --file=./combined.sql --remote
-   
-   # 構建和部署
-   npm run build
-   wrangler pages deploy .next --project-name=10massage
-   ```
+## ⚠️ 已知問題與修復方法
 
-> 注意：圖片上傳功能在本地和Cloudflare環境都可正常使用，但存儲位置會有所不同。本地使用文件系統，Cloudflare使用R2。必須在Cloudflare控制台中正確設置D1和R2的綁定才能正常運作。
+### 預設帳戶登入失敗 (CredentialsSignin 錯誤)
 
-## ⚠️ 已知問題
+如果您在登入預設帳戶時遇到 "CredentialsSignin" 錯誤，這可能是由於密碼雜湊方法不一致所導致的。
+系統在不同環境中可能使用不同的密碼雜湊方法，導致驗證失敗。
 
-在使用本系統時，請注意以下已知問題：
+**解決方法:**
+1. 訪問 `/admin/repair` 頁面
+2. 點擊 "開始修復" 按鈕
+3. 系統會自動修復所有預設帳戶的密碼雜湊問題
+4. 修復完成後，使用預設帳號重新登入
+
+### 按摩師角色卡不顯示問題
+
+如果您發現指派了按摩師角色的用戶，但在按摩師列表中沒有顯示對應的角色卡，這是因為用戶角色與按摩師記錄之間的關聯缺失。
+
+**解決方法:**
+1. 訪問 `/admin/repair` 頁面
+2. 點擊 "開始修復" 按鈕
+3. 系統會自動為具有按摩師角色的用戶創建對應的按摩師資料記錄
+4. 修復完成後，刷新按摩師列表頁面查看結果
 
 ### 一般問題
 1. **圖片上傳問題**
@@ -334,126 +351,33 @@ src/
    - 解決方案：重啟開發服務器，或者使用`npx prisma migrate reset`重設數據庫
 
 ### Vercel部署問題
-1. **樣式載入問題**
-   - 問題：部署到Vercel後，頁面樣式不正確
-   - 解決方案：移除 `NEXT_PUBLIC_ASSET_PREFIX` 環境變數，或確保設置正確的URL
+1. **Radix UI組件加載錯誤**
+   - 問題：部署到Vercel後出現 `Module not found: Can't resolve '@radix-ui/react-separator'` 錯誤
+   - 解決方案：確保已安裝所有必要的Radix UI套件：`npm install @radix-ui/react-separator --save`
    
 2. **Prisma初始化錯誤**
    - 問題：部署後出現 `PrismaClientInitializationError`
-   - 解決方案：設置建置命令為 `npx prisma generate && next build`
+   - 解決方案：設置建置命令為 `npx prisma generate && next build`，確保Prisma客戶端正確生成
 
 3. **資料庫連接問題**
    - 問題：無法連接到Neon PostgreSQL資料庫
-   - 解決方案：檢查 `NEON_POSTGRES_PRISMA_URL` 環境變數是否正確設置
-
-更多Vercel部署相關問題及詳細解決方案，請查看 [Vercel部署指南](#vercel部署指南) 章節。
+   - 解決方案：檢查 `NEON_POSTGRES_PRISMA_URL` 環境變數是否正確設置，確保URL格式正確
 
 ## Vercel部署指南
 
-本系統支持部署到Vercel平台，並配合使用Neon PostgreSQL資料庫。以下是部署步驟和注意事項：
+本系統支持部署到Vercel平台，並配合使用Neon PostgreSQL資料庫。完整的部署步驟和問題解決方案請參考[Vercel部署指南](./VERCEL-DEPLOYMENT.md)文件。
 
-### 部署準備
+主要步驟包括：
+1. 在Neon.tech創建PostgreSQL資料庫並獲取連接字串
+2. 在Vercel創建新專案並連接GitHub倉庫
+3. 配置必要的環境變數，包括數據庫連接和認證設置
+4. 部署專案並初始化管理員帳戶
 
-1. **GitHub倉庫設置**
-   - 確保代碼已推送到GitHub倉庫
-   - 如使用私有倉庫，需要授權Vercel訪問
-
-2. **Neon PostgreSQL設置**
-   - 在Neon.tech建立免費PostgreSQL資料庫
-   - 獲取連接字串(Connection String)
-
-### 部署步驟
-
-1. **Vercel專案設置**
-   - 在Vercel創建新專案並連接GitHub倉庫
-   - 選擇Next.js框架預設
-
-2. **環境變數設置**
-   - `NEON_POSTGRES_PRISMA_URL`: Neon PostgreSQL連接字串
-   - `NEXTAUTH_URL`: 完整的Vercel網站URL
-   - `NEXTAUTH_SECRET`: 認證加密密鑰
-   - `NODE_ENV`: 設為 "production"
-
-3. **建置設置**
-   - 建置命令: `npx prisma generate && next build`
-   - 輸出目錄: `.next`
-
-4. **資料庫遷移**
-   - 在本地運行 `npx prisma migrate dev`
-   - 如果從SQLite遷移到PostgreSQL，需要刪除舊的migrations目錄
-   - 按照[資料庫遷移指南](#資料庫遷移)操作
-
-5. **部署完成後**
-   - 訪問 `/api/admin/init-accounts` 初始化管理員帳戶
-   - 使用預設帳號登入: admin@eilinspa.com / admin123
-   - **如果登入出現問題**: 訪問 `/admin/repair` 使用系統修復工具修復帳戶問題
-
-### 已知問題與修復方法
-
-#### 預設帳戶登入失敗 (CredentialsSignin 錯誤)
-
-如果您在登入預設帳戶時遇到 "CredentialsSignin" 錯誤，這可能是由於密碼雜湊方法不一致所導致的。
-系統在不同環境中可能使用不同的密碼雜湊方法，導致驗證失敗。
-
-**解決方法:**
-1. 訪問 `/admin/repair` 頁面
-2. 點擊 "開始修復" 按鈕
-3. 系統會自動修復所有預設帳戶的密碼雜湊問題
-4. 修復完成後，使用預設帳號重新登入
-
-#### 按摩師角色卡不顯示問題
-
-如果您發現指派了按摩師角色的用戶，但在按摩師列表中沒有顯示對應的角色卡，這是因為用戶角色與按摩師記錄之間的關聯缺失。
-
-**解決方法:**
-1. 訪問 `/admin/repair` 頁面
-2. 點擊 "開始修復" 按鈕
-3. 系統會自動為具有按摩師角色的用戶創建對應的按摩師資料記錄
-4. 修復完成後，刷新按摩師列表頁面查看結果
-
-### 資料庫遷移
-
-如果您從SQLite遷移到PostgreSQL，需要遵循以下步驟：
-
-1. **移除舊的遷移紀錄**
-   ```powershell
-   Remove-Item -Path "prisma\migrations" -Recurse -Force
-   ```
-
-2. **設置新的資料庫URL**
-   在 `.env` 文件中更新連接字串：
-   ```
-   DATABASE_URL="postgresql://username:password@hostname:port/database"
-   ```
-
-3. **生成Prisma客戶端**
-   ```powershell
-   npx prisma generate
-   ```
-
-4. **創建新的遷移**
-   ```powershell
-   npx prisma migrate dev --name initial
-   ```
-
-請確保在本地成功遷移後再部署到Vercel，以避免資料庫結構不一致的問題。
-
-## Cloudflare部署指南
-
-本系統支持部署到Cloudflare Pages，並配合使用Cloudflare D1數據庫和R2存儲服務。部署過程中可能會遇到一些問題，我們已將這些問題及解決方案記錄在專門的部署指南中。
-
-**查看完整部署步驟和問題解決方案：**
-- [Cloudflare部署問題與解決方案](./CLOUDFLARE-DEPLOYMENT.md)
-
-主要部署步驟：
-1. 設置Cloudflare服務（D1數據庫和R2存儲桶）
-2. 配置wrangler.toml
-3. 構建並部署應用
-4. 設置綁定和環境變數
-5. 部署數據庫結構
-6. 初始化賬戶
+部署完成後，請訪問 `/api/admin/init-accounts` 初始化管理員帳戶，然後使用預設帳號登入。如遇問題，可使用 `/admin/repair` 系統修復工具解決。
 
 ## 👨‍💻 開發者文件
+
+如需了解詳細的開發指南、資料庫結構和API參考，請參閱[開發者文件](./DEVELOPMENT.md)。
 
 ### 資料庫結構
 

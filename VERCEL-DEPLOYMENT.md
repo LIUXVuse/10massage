@@ -12,6 +12,7 @@
 - [Neon PostgreSQL 設置](#neon-postgresql-設置)
 - [資料庫遷移](#資料庫遷移)
 - [部署後驗證](#部署後驗證)
+- [系統修復工具](#系統修復工具)
 - [常見問題與解決方案](#常見問題與解決方案)
 - [重要參考資料](#重要參考資料)
 
@@ -57,6 +58,7 @@
 | 變數名                    | 描述                                  | 範例                                                  |
 |--------------------------|--------------------------------------|------------------------------------------------------|
 | NEON_POSTGRES_PRISMA_URL | Neon PostgreSQL 連接字串              | postgresql://user:pass@hostname:port/database        |
+| DIRECT_URL               | 直接連接到Neon PostgreSQL的URL        | postgresql://user:pass@hostname:port/database        |
 | NEXTAUTH_URL             | 完整的網站 URL                        | https://10massage.vercel.app                         |
 | NEXTAUTH_SECRET          | 認證加密密鑰                          | complex_random_string                                |
 | NODE_ENV                 | 環境設定                              | production                                           |
@@ -77,8 +79,10 @@
 如無法使用整合功能，可手動設置:
 
 1. 複製 Neon PostgreSQL 連接字串
-2. 在 Vercel 專案設置中添加環境變數 `NEON_POSTGRES_PRISMA_URL`
+2. 在 Vercel 專案設置中添加環境變數 `NEON_POSTGRES_PRISMA_URL` 和 `DIRECT_URL`
 3. 複製連接字串時確保包含完整 URL，包括用戶名、密碼等
+4. NEON_POSTGRES_PRISMA_URL 應包含 `pgbouncer=true` 參數
+5. DIRECT_URL 應直接連接到資料庫，不使用連接池
 
 ## 資料庫遷移
 
@@ -96,6 +100,7 @@
 2. 更新本地 `.env` 文件以連接到 Neon:
    ```
    NEON_POSTGRES_PRISMA_URL=postgresql://user:pass@hostname:port/database
+   DIRECT_URL=postgresql://user:pass@hostname:port/database
    ```
 
 3. 重新生成 Prisma 客戶端:
@@ -123,8 +128,8 @@ npx prisma db pull
 1. 完成部署後，訪問 `/api/admin/init-accounts` 端點
 2. 應看到成功訊息，表示管理員帳戶已創建
 3. 使用預設帳號登入:
-   - 郵箱: admin@example.com
-   - 密碼: Admin123
+   - 郵箱: admin@eilinspa.com
+   - 密碼: admin123
 
 ### 驗證功能
 
@@ -135,6 +140,34 @@ npx prisma db pull
 3. 上傳圖片
 4. 保存和查看資料
 
+## 系統修復工具
+
+為解決部署後可能遇到的帳戶和角色問題，系統提供了自動修復工具。
+
+### 使用修復工具
+
+1. 如果登入預設帳戶出現 "CredentialsSignin" 錯誤，或按摩師角色卡不顯示
+2. 訪問 `/admin/repair` 頁面
+3. 點擊 "開始修復" 按鈕
+4. 等待修復程序完成，查看診斷報告
+5. 使用預設帳號重新登入
+
+### 修復內容
+
+系統修復工具可解決以下問題:
+
+1. **帳戶密碼問題**:
+   - 統一所有帳戶的密碼雜湊方法
+   - 確保所有環境中密碼驗證的一致性
+
+2. **角色數據問題**:
+   - 為具有MASSEUR角色的用戶創建對應的按摩師記錄
+   - 確保角色與資料記錄之間的關聯正確
+
+3. **系統初始化問題**:
+   - 確保所有預設帳戶正確創建
+   - 驗證權限設置和角色分配
+
 ## 常見問題與解決方案
 
 ### 1. PrismaClientInitializationError
@@ -144,30 +177,44 @@ npx prisma db pull
 **解決方案**:
 - 確保建置命令已設為 `npx prisma generate && next build`
 - 檢查 `NEON_POSTGRES_PRISMA_URL` 環境變數是否正確
+- 確認 `DIRECT_URL` 環境變數已正確設置
 - 確認 Neon 資料庫允許來自 Vercel 的連接
 - 嘗試使用 URL 友好的格式:
   ```
   postgres://user:pass@hostname:port/database
   ```
 
-### 2. 樣式載入問題
+### 2. 模組找不到錯誤
 
-**問題**: 網站部署後樣式不正確，看起來「很醜」。
+**問題**: 部署後出現 `Module not found: Can't resolve '@radix-ui/react-separator'` 等錯誤。
 
 **解決方案**:
-- 如存在 `NEXT_PUBLIC_ASSET_PREFIX` 環境變數，先移除它
-- 確保 `next.config.js` 中的資源前綴配置正確:
-  ```javascript
-  const nextConfig = {
-    output: 'standalone',
-    images: {
-      domains: ['vercel.app'],
-    }
-  };
+- 確保已安裝所有必要的Radix UI套件:
+  ```bash
+  npm install @radix-ui/react-separator --save
   ```
-- 清除瀏覽器快取後重新訪問網站
+- 檢查 `package.json` 中是否包含所有必要的依賴
+- 在本地執行 `npm ci` 確保依賴安裝正確，然後再次部署
 
-### 3. 資料庫遷移錯誤
+### 3. 預設帳戶登入失敗
+
+**問題**: 使用預設帳戶登入時出現 "CredentialsSignin" 錯誤。
+
+**解決方案**:
+- 訪問 `/admin/repair` 頁面使用系統修復工具
+- 工具會自動修復所有帳戶的密碼雜湊問題
+- 修復完成後使用預設帳號重新登入
+
+### 4. 按摩師角色卡不顯示
+
+**問題**: 指派了按摩師角色的用戶，但在按摩師列表中沒有顯示對應的角色卡。
+
+**解決方案**:
+- 訪問 `/admin/repair` 頁面使用系統修復工具
+- A工具會自動為具有按摩師角色的用戶創建對應的按摩師資料記錄
+- 修復完成後刷新按摩師列表頁面查看結果
+
+### 5. 資料庫遷移錯誤
 
 **問題**: P3019 錯誤 - Cannot find migration
 
@@ -175,15 +222,6 @@ npx prisma db pull
 - 這通常發生在從 SQLite 遷移到 PostgreSQL 時
 - 依照[資料庫遷移](#資料庫遷移)部分的步驟重新執行遷移
 - 確保 `schema.prisma` 和 `.env` 文件設置一致
-
-### 4. 免費版部署限制
-
-**問題**: Vercel 顯示升級到 Pro 計劃的提示。
-
-**解決方案**:
-- Vercel 免費版有每日部署次數限制
-- 減少部署頻率，合併多個變更後一次部署
-- 針對大型更改使用 Preview 環境測試，確認無錯誤後再部署到生產環境
 
 ## 重要參考資料
 
@@ -205,7 +243,7 @@ npx prisma db pull
    });
    ```
 
-2. 在 Vercel 儀表板中的 "Functions" 部分查看日誌。
+2. 在 Vercel 儀表板中的 "Functions" 部分查看日誌
 
 3. 使用 Vercel CLI 在本地模擬生產環境:
    ```bash
