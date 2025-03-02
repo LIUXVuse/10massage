@@ -1,6 +1,6 @@
 # 開發者文檔
 
-![Last Updated](https://img.shields.io/badge/last%20updated-2025--03--01-orange.svg)
+![Last Updated](https://img.shields.io/badge/last%20updated-2025--03--02-orange.svg)
 
 本文檔為伊林SPA預約系統的開發者文檔，提供項目設置、開發流程以及注意事項。
 
@@ -158,18 +158,52 @@
 2. **部署到 Vercel**
    - 將代碼推送到 GitHub
    - Vercel 將自動部署 main 分支
+   - 確保 Build & Development Settings 中的建置命令設為: `npx prisma generate && next build`
 
-3. **數據庫遷移**
-   - 確保生產數據庫已應用所有遷移
-   - 使用 `npx prisma migrate deploy` 應用遷移
+3. **數據庫設置**
+   - 使用 Neon PostgreSQL 作為生產數據庫
+   - 在 Neon.tech 建立新的 PostgreSQL 資料庫
+   - 通過 Vercel 整合將 Neon 數據庫連接到專案
+   - 確保 `NEON_POSTGRES_PRISMA_URL` 環境變數已正確設置
+
+4. **數據庫遷移**
+   - 本地開發使用的 SQLite 數據不能直接遷移到 PostgreSQL
+   - 需要重新建立遷移歷史:
+     ```powershell
+     # 刪除舊的遷移記錄
+     Remove-Item -Path "prisma\migrations" -Recurse -Force
+     
+     # 生成 Prisma 客戶端
+     npx prisma generate
+     
+     # 創建新的遷移
+     npx prisma migrate dev --name initial
+     ```
+   - 初始化管理員帳戶:
+     在部署完成後訪問 `/api/admin/init-accounts` 端點
 
 ### 環境變量配置
 
-生產環境需要配置以下環境變量:
-- `DATABASE_URL`: 生產數據庫連接字符串
-- `NEXTAUTH_URL`: 完整的網站 URL
+Vercel 生產環境需要配置以下環境變量:
+- `NEON_POSTGRES_PRISMA_URL`: Neon PostgreSQL 連接字符串
+- `NEXTAUTH_URL`: 完整的網站 URL (例如 https://10massage.vercel.app)
 - `NEXTAUTH_SECRET`: 認證加密密鑰
-- `UPLOAD_DIR`: 圖片上傳目錄 (Cloudflare R2 或本地)
+- `NODE_ENV`: 設為 "production"
+
+### PostgreSQL 連接字符串格式
+
+Neon PostgreSQL 的連接字符串格式如下:
+```
+postgresql://username:password@hostname:port/database
+```
+
+確保在 prisma/schema.prisma 中使用正確的環境變數:
+```prisma
+datasource db {
+  provider = "postgresql"
+  url      = env("NEON_POSTGRES_PRISMA_URL")
+}
+```
 
 ## 最佳實踐
 

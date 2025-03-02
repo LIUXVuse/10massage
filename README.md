@@ -2,7 +2,7 @@
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
 ![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
-![Last Updated](https://img.shields.io/badge/last%20updated-2025--03--01-orange.svg)
+![Last Updated](https://img.shields.io/badge/last%20updated-2025--03--02-orange.svg)
 
 專為伊林SPA設計的全功能線上預約系統，提供簡單舒適且安全的預約體驗，支援多平台使用。
 
@@ -15,6 +15,7 @@
 - [開發進度](#開發進度)
 - [管理員指南](#管理員指南)
 - [已知問題](#已知問題)
+- [Vercel部署指南](#vercel部署指南)
 - [Cloudflare部署指南](#cloudflare部署指南)
 - [開發者文件](#開發者文件)
 - [問題回報](#問題回報)
@@ -24,11 +25,11 @@
 
 - **前端框架**: Next.js 14 (App Router)
 - **UI框架**: Tailwind CSS 3.4 + Radix UI
-- **資料庫**: PostgreSQL 15.0 / SQLite (本地開發)
+- **資料庫**: PostgreSQL 15.0 (Neon) / SQLite (本地開發)
 - **ORM**: Prisma 6.2
 - **認證**: NextAuth.js 4.24
 - **API**: RESTful API
-- **部署**: Vercel + Cloudflare
+- **部署**: Vercel + Neon PostgreSQL
 - **開發語言**: TypeScript 5.0
 
 ## 🔧 系統架構
@@ -332,16 +333,86 @@ src/
    - 問題：偶爾會出現數據庫鎖定錯誤
    - 解決方案：重啟開發服務器，或者使用`npx prisma migrate reset`重設數據庫
 
-### Cloudflare部署問題
-1. **訪問按摩師管理頁面被重定向到首頁**
-   - 問題：在Cloudflare環境中，訪問按摩師管理頁面時被重定向到首頁並登出
-   - 狀態：已記錄，等待修復
+### Vercel部署問題
+1. **樣式載入問題**
+   - 問題：部署到Vercel後，頁面樣式不正確
+   - 解決方案：移除 `NEXT_PUBLIC_ASSET_PREFIX` 環境變數，或確保設置正確的URL
+   
+2. **Prisma初始化錯誤**
+   - 問題：部署後出現 `PrismaClientInitializationError`
+   - 解決方案：設置建置命令為 `npx prisma generate && next build`
 
-2. **部署後按摩師數據不顯示**
-   - 問題：從本地環境部署到Cloudflare後，原有的按摩師數據不顯示
-   - 解決方案：請參閱 [Cloudflare部署指南](#cloudflare部署指南)
+3. **資料庫連接問題**
+   - 問題：無法連接到Neon PostgreSQL資料庫
+   - 解決方案：檢查 `NEON_POSTGRES_PRISMA_URL` 環境變數是否正確設置
 
-更多Cloudflare部署相關問題及詳細解決方案，請查看 [CLOUDFLARE-DEPLOYMENT.md](./CLOUDFLARE-DEPLOYMENT.md) 文件。
+更多Vercel部署相關問題及詳細解決方案，請查看 [Vercel部署指南](#vercel部署指南) 章節。
+
+## Vercel部署指南
+
+本系統支持部署到Vercel平台，並配合使用Neon PostgreSQL資料庫。以下是部署步驟和注意事項：
+
+### 部署準備
+
+1. **GitHub倉庫設置**
+   - 確保代碼已推送到GitHub倉庫
+   - 如使用私有倉庫，需要授權Vercel訪問
+
+2. **Neon PostgreSQL設置**
+   - 在Neon.tech建立免費PostgreSQL資料庫
+   - 獲取連接字串(Connection String)
+
+### 部署步驟
+
+1. **Vercel專案設置**
+   - 在Vercel創建新專案並連接GitHub倉庫
+   - 選擇Next.js框架預設
+
+2. **環境變數設置**
+   - `NEON_POSTGRES_PRISMA_URL`: Neon PostgreSQL連接字串
+   - `NEXTAUTH_URL`: 完整的Vercel網站URL
+   - `NEXTAUTH_SECRET`: 認證加密密鑰
+   - `NODE_ENV`: 設為 "production"
+
+3. **建置設置**
+   - 建置命令: `npx prisma generate && next build`
+   - 輸出目錄: `.next`
+
+4. **資料庫遷移**
+   - 在本地運行 `npx prisma migrate dev`
+   - 如果從SQLite遷移到PostgreSQL，需要刪除舊的migrations目錄
+   - 按照[資料庫遷移指南](#資料庫遷移)操作
+
+5. **部署完成後**
+   - 訪問 `/api/admin/init-accounts` 初始化管理員帳戶
+   - 使用預設帳號登入: admin@example.com / Admin123
+
+### 資料庫遷移
+
+如果您從SQLite遷移到PostgreSQL，需要遵循以下步驟：
+
+1. **移除舊的遷移紀錄**
+   ```powershell
+   Remove-Item -Path "prisma\migrations" -Recurse -Force
+   ```
+
+2. **設置新的資料庫URL**
+   在 `.env` 文件中更新連接字串：
+   ```
+   DATABASE_URL="postgresql://username:password@hostname:port/database"
+   ```
+
+3. **生成Prisma客戶端**
+   ```powershell
+   npx prisma generate
+   ```
+
+4. **創建新的遷移**
+   ```powershell
+   npx prisma migrate dev --name initial
+   ```
+
+請確保在本地成功遷移後再部署到Vercel，以避免資料庫結構不一致的問題。
 
 ## Cloudflare部署指南
 
