@@ -42,19 +42,26 @@ model Masseur {
 }
 
 model Service {
-  id          String            @id @default(cuid())
-  name        String
-  description String?
-  price       Float              // 基本價格
-  duration    Int                // 基本時長
-  type        String            @default("SINGLE")
-  category    String            @default("MASSAGE")
-  isActive    Boolean           @default(true)
-  isRecommend Boolean           @default(false)
-  masseurs    Masseur[]
-  durations   ServiceDuration[]
-  createdAt   DateTime          @default(now())
-  updatedAt   DateTime          @updatedAt
+  id                String            @id @default(cuid())
+  name              String
+  description       String?
+  price             Float              // 基本價格
+  duration          Int                // 基本時長
+  type              String            @default("SINGLE")
+  category          String            @default("MASSAGE")
+  isActive          Boolean           @default(true)
+  isRecommend       Boolean           @default(false)
+  isLimitedTime     Boolean           @default(false)  // 新增：是否為期間限定
+  isFlashSale       Boolean           @default(false)  // 新增：是否為快閃方案
+  limitedStartDate  DateTime?         // 新增：限定開始日期
+  limitedEndDate    DateTime?         // 新增：限定結束日期
+  flashSalePercent  Int?              // 新增：快閃折扣百分比
+  flashSalePrice    Float?            // 新增：快閃特價
+  flashSaleNote     String?           // 新增：快閃備註
+  masseurs          Masseur[]
+  durations         ServiceDuration[]
+  createdAt         DateTime          @default(now())
+  updatedAt         DateTime          @updatedAt
 }
 
 model ServiceDuration {
