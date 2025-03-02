@@ -1,7 +1,7 @@
 # 伊林SPA服務數據模型分析
 
 *文檔創建日期：2025-03-02*
-*最後更新：2025-03-02*
+*最後更新：2025-03-02 (限時優惠和閃購特價功能更新)*
 
 ## 目錄
 
@@ -10,6 +10,7 @@
 3. [功能缺口分析](#功能缺口分析)
 4. [數據模型擴展方案](#數據模型擴展方案)
 5. [數據遷移策略](#數據遷移策略)
+6. [限時優惠與閃購特價功能](#限時優惠與閃購特價功能)
 
 ## 現有數據模型
 
@@ -17,14 +18,22 @@
 
 ```prisma
 model Service {
-  id             String           @id @default(cuid())
-  name           String           @db.VarChar(100)
-  description    String?          @db.Text
-  category       String           @default("一般")
-  isRecommended  Boolean          @default(false)
-  recommendOrder Int              @default(0)
-  durations      ServiceDuration[]
-  masseurs       Masseur[]
+  id                    String           @id @default(cuid())
+  name                  String           @db.VarChar(100)
+  description           String?          @db.Text
+  category              String           @default("一般")
+  isRecommended         Boolean          @default(false)
+  recommendOrder        Int              @default(0)
+  isLimitedTime         Boolean          @default(false)
+  limitedStartDate      DateTime?
+  limitedEndDate        DateTime?
+  limitedSpecialPrice   Float?
+  limitedDiscountPercent Int?
+  limitedNote           String?          @db.Text
+  isFlashSale           Boolean          @default(false)
+  flashSaleNote         String?          @db.Text
+  durations             ServiceDuration[]
+  masseurs              Masseur[]
 }
 
 model ServiceDuration {
@@ -47,6 +56,18 @@ model ServiceDuration {
 - `category`: 服務類別
 - `isRecommended`: 是否為推薦服務
 - `recommendOrder`: 推薦排序順序
+
+### 限時優惠與閃購特價
+
+`Service`模型現在包含限時優惠和閃購特價相關字段：
+- `isLimitedTime`: 是否為限時優惠服務
+- `limitedStartDate`: 限時優惠開始日期
+- `limitedEndDate`: 限時優惠結束日期
+- `limitedSpecialPrice`: 限時優惠特價
+- `limitedDiscountPercent`: 限時優惠折扣百分比
+- `limitedNote`: 限時優惠備註
+- `isFlashSale`: 是否為閃購特價
+- `flashSaleNote`: 閃購特價備註
 
 ### 服務時長與價格
 
@@ -179,6 +200,56 @@ model ServicePackageOptionItem {
   packageOptionId String
 }
 ```
+
+## 限時優惠與閃購特價功能
+
+為了提升服務的營銷能力和靈活性，我們對服務模型進行了調整，增強了限時優惠和閃購特價功能。
+
+### 功能調整說明
+
+1. **限時優惠功能增強**：
+   - 新增 `limitedSpecialPrice`：允許設定限時優惠的特價金額
+   - 新增 `limitedDiscountPercent`：允許設定限時優惠的折扣百分比
+   - 新增 `limitedNote`：允許添加限時優惠的說明文字
+
+2. **閃購特價功能簡化**：
+   - 移除了 `flashSalePercent` 和 `flashSalePrice` 欄位
+   - 保留 `isFlashSale` 標記和 `flashSaleNote` 說明
+   - 閃購特價現在主要作為一種標記，不再單獨存儲價格信息
+
+### 業務邏輯調整
+
+1. **限時優惠邏輯**：
+   - 服務可以設置為限時優惠，需指定開始和結束日期
+   - 可以選擇設置特價金額或折扣百分比（二選一）
+   - 系統會自動根據當前日期判斷限時優惠是否有效
+
+2. **閃購特價邏輯**：
+   - 閃購特價作為一種特殊標記，用於前端展示和篩選
+   - 閃購特價服務通常會在前端界面中特別突出顯示
+   - 閃購特價不再單獨存儲價格信息，而是使用限時優惠的價格機制
+
+### 數據遷移說明
+
+我們已完成從舊模型到新模型的數據遷移，主要變更包括：
+
+1. 移除 `flashSalePercent` 和 `flashSalePrice` 欄位
+2. 新增 `limitedSpecialPrice`、`limitedDiscountPercent` 和 `limitedNote` 欄位
+3. 保留現有的 `isLimitedTime`、`limitedStartDate`、`limitedEndDate`、`isFlashSale` 和 `flashSaleNote` 欄位
+
+### 前端界面調整
+
+服務表單已更新，以支持新的數據模型：
+
+1. 限時優惠部分現在包含：
+   - 開始和結束日期選擇器
+   - 特價金額輸入框
+   - 折扣百分比輸入框
+   - 限時優惠說明文本框
+
+2. 閃購特價部分簡化為：
+   - 啟用/禁用開關
+   - 閃購說明文本框
 
 ## 數據遷移策略
 

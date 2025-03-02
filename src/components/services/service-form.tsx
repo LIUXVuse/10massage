@@ -1,579 +1,846 @@
 "use client";
 
-import { useForm } from "react-hook-form";
+import { useState, useEffect } from "react";
 import { zodResolver } from "@hookform/resolvers/zod";
-import * as z from "zod";
-import { Button } from "@/components/ui/button";
-import { Input } from "@/components/ui/input";
-import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
-import { RadioGroup, RadioGroupItem } from "@/components/ui/radio-group";
-import { useState } from "react";
-import { Trash2, Loader2, CalendarIcon } from "lucide-react";
-import { Switch } from "@/components/ui/switch";
-import { toast } from "@/components/ui/use-toast";
-import { DatePickerWithRange } from "@/components/ui/date-range-picker";
-import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { useForm } from "react-hook-form";
+import { z } from "zod";
+import { Button } from "../ui/button";
+import { Input } from "../ui/input";
+import { Textarea } from "../ui/textarea";
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from "../ui/form";
+import { RadioGroup, RadioGroupItem } from "../ui/radio-group";
+import { Switch } from "../ui/switch";
+import { Badge } from "../ui/badge";
+import { Calendar } from "../ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "../ui/popover";
 import { cn } from "@/lib/utils";
 import { format } from "date-fns";
-import { Calendar } from "@/components/ui/calendar";
 import { zhTW } from "date-fns/locale";
+import { CalendarIcon, X, Plus } from "lucide-react";
 
+// 服務表單的驗證規則
 const serviceSchema = z.object({
-  name: z.string().min(1, "名稱為必填"),
-  description: z.string().min(1, "描述為必填"),
+  id: z.string().optional(),
+  name: z.string().min(1, "服務名稱不能為空"),
+  description: z.string().optional(),
   type: z.enum(["SINGLE", "COMBO"]),
   category: z.enum(["MASSAGE", "CARE", "TREATMENT"]),
-  isRecommended: z.boolean(),
-  recommendOrder: z.number().min(0),
-  // 期間限定功能
+  
+  // 期間限定相關字段
   isLimitedTime: z.boolean().default(false),
-  limitedStartDate: z.date().nullable().optional(),
-  limitedEndDate: z.date().nullable().optional(),
-  // 快閃方案功能
+  limitedStartDate: z.date().optional().nullable(),
+  limitedEndDate: z.date().optional().nullable(),
+  limitedSpecialPrice: z.number().optional().nullable(),
+  limitedDiscountPercent: z.number().optional().nullable(),
+  limitedNote: z.string().optional().nullable(),
+  
+  // 快閃方案相關字段
   isFlashSale: z.boolean().default(false),
-  flashSalePercent: z.number().min(0).max(100).nullable().optional(),
-  flashSalePrice: z.number().min(0).nullable().optional(),
-  flashSaleNote: z.string().nullable().optional(),
-  durations: z.array(
-    z.object({
-      duration: z.number().int().min(1, "時長為必填且必須是正數"),
-      price: z.number().min(1, "價格為必填且必須是正數"),
-    })
-  ).min(1, "至少需要一個時長"),
-  masseurs: z.array(
-    z.object({
-      id: z.string(),
-    })
-  ).min(1, "至少需要一個按摩師"),
-}).refine((data) => {
-  // 如果是期間限定，則開始日期和結束日期都必須提供
+  flashSaleNote: z.string().optional().nullable(),
+  
+  // 推薦服務相關字段
+  isRecommended: z.boolean().default(false),
+  recommendOrder: z.number().optional().nullable(),
+  
+  // 關聯字段
+  masseurs: z.array(z.object({
+    id: z.string()
+  })).optional(),
+}).refine(data => {
+  // 如果是期間限定服務，則開始日期和結束日期都必須提供
   if (data.isLimitedTime) {
     if (!data.limitedStartDate || !data.limitedEndDate) {
       return false;
     }
-    // 確保結束日期大於開始日期
-    if (data.limitedStartDate && data.limitedEndDate) {
-      return data.limitedEndDate > data.limitedStartDate;
+  }
+  return true;
+}, {
+  message: "期間限定服務必須提供開始和結束日期",
+  path: ["isLimitedTime"],
+}).refine(data => {
+  // 如果是期間限定服務，則結束日期必須晚於開始日期
+  if (data.isLimitedTime && data.limitedStartDate && data.limitedEndDate) {
+    return data.limitedEndDate > data.limitedStartDate;
+  }
+  return true;
+}, {
+  message: "結束日期必須晚於開始日期",
+  path: ["limitedEndDate"],
+}).refine(data => {
+  // 如果是期間限定服務，則折扣百分比或特價至少提供一個
+  if (data.isLimitedTime) {
+    if (data.limitedDiscountPercent === undefined && data.limitedSpecialPrice === undefined) {
+      return false;
     }
   }
   return true;
 }, {
-  message: "期間限定服務必須設置有效的開始和結束日期，且結束日期必須晚於開始日期",
-  path: ["limitedEndDate"],
-}).refine((data) => {
-  // 如果是快閃方案，則折扣百分比或特價必須提供其中一項
-  if (data.isFlashSale) {
-    return (data.flashSalePercent !== null && data.flashSalePercent !== undefined) || 
-           (data.flashSalePrice !== null && data.flashSalePrice !== undefined);
+  message: "期間限定服務必須提供折扣百分比或特價",
+  path: ["isLimitedTime"],
+}).refine(data => {
+  // 如果提供了折扣百分比，則必須在0到100之間
+  if (data.limitedDiscountPercent !== undefined && data.limitedDiscountPercent !== null) {
+    return data.limitedDiscountPercent >= 0 && data.limitedDiscountPercent <= 100;
   }
   return true;
 }, {
-  message: "快閃方案必須設置折扣百分比或特價",
-  path: ["flashSalePercent"],
+  message: "折扣百分比必須在0到100之間",
+  path: ["limitedDiscountPercent"],
+}).refine(data => {
+  // 如果是快閃方案，則開始日期和結束日期都必須提供
+  if (data.isFlashSale) {
+    if (!data.limitedStartDate || !data.limitedEndDate) {
+      return false;
+    }
+  }
+  return true;
+}, {
+  message: "快閃方案必須提供開始和結束日期",
+  path: ["isFlashSale"],
+}).refine(data => {
+  // 如果是快閃方案，則結束日期必須晚於開始日期
+  if (data.isFlashSale && data.limitedStartDate && data.limitedEndDate) {
+    return data.limitedEndDate > data.limitedStartDate;
+  }
+  return true;
+}, {
+  message: "結束日期必須晚於開始日期",
+  path: ["limitedEndDate"],
 });
 
-type ServiceFormData = z.infer<typeof serviceSchema>;
-
+// 定義組件屬性
 interface ServiceFormProps {
-  initialData?: ServiceFormData;
-  masseurs: Array<{ id: string; name: string }>;
-  onSubmit: (data: ServiceFormData) => void;
+  initialData?: any;
+  masseurs?: any[];
+  onSubmit: (data: any) => void;
 }
 
-export function ServiceForm({ initialData, masseurs, onSubmit }: ServiceFormProps) {
-  const [durations, setDurations] = useState(
-    initialData?.durations || [{ duration: 60, price: 1000 }]
+// 服務表單組件
+export function ServiceForm({ initialData, masseurs = [], onSubmit }: ServiceFormProps) {
+  const [durations, setDurations] = useState<{ id?: string, duration: number, price: number }[]>(
+    initialData?.durations?.length 
+      ? initialData.durations.map((d: any) => ({ 
+          id: d.id, 
+          duration: d.duration, 
+          price: d.price 
+        })) 
+      : [{ duration: 60, price: 2000 }]
   );
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [error, setError] = useState<string | null>(null);
 
-  const {
-    register,
-    handleSubmit,
-    formState: { errors },
-    setValue,
-    watch,
-    control,
-  } = useForm<ServiceFormData>({
+  // 初始化表單
+  const form = useForm<z.infer<typeof serviceSchema>>({
     resolver: zodResolver(serviceSchema),
-    defaultValues: initialData || {
-      type: "SINGLE",
-      category: "MASSAGE",
-      isRecommended: false,
-      recommendOrder: 0,
-      isLimitedTime: false,
-      isFlashSale: false,
-      masseurs: [],
-      durations: [{ duration: 60, price: 1000 }]
-    },
+    defaultValues: initialData 
+      ? {
+          ...initialData,
+          limitedStartDate: initialData.limitedStartDate ? new Date(initialData.limitedStartDate) : null,
+          limitedEndDate: initialData.limitedEndDate ? new Date(initialData.limitedEndDate) : null,
+        }
+      : {
+          name: "",
+          description: "",
+          type: "SINGLE",
+          category: "MASSAGE",
+          isLimitedTime: false,
+          limitedStartDate: null,
+          limitedEndDate: null,
+          limitedSpecialPrice: null,
+          limitedDiscountPercent: null,
+          limitedNote: null,
+          isFlashSale: false,
+          flashSaleNote: null,
+          isRecommended: false,
+          recommendOrder: null,
+          masseurs: [],
+        },
   });
 
-  const selectedMasseurs = watch("masseurs") || [];
-  const isRecommended = watch("isRecommended");
-  const isLimitedTime = watch("isLimitedTime");
-  const isFlashSale = watch("isFlashSale");
-  const limitedStartDate = watch("limitedStartDate");
-  const limitedEndDate = watch("limitedEndDate");
-
-  const addDuration = () => {
-    setDurations([...durations, { duration: 60, price: 1000 }]);
-  };
-
-  const removeDuration = (index: number) => {
-    if (durations.length <= 1) {
-      toast({
-        title: "無法刪除",
-        description: "至少需要保留一個時長價格組合",
-        variant: "destructive"
-      });
-      return;
-    }
-    
-    const newDurations = durations.filter((_, i) => i !== index);
-    setDurations(newDurations);
-    setValue("durations", newDurations);
-  };
-
-  const handleDurationChange = (
-    index: number,
-    field: "duration" | "price",
-    value: string
-  ) => {
-    // 確保輸入值為有效數字
-    const numericValue = parseFloat(value);
-    if (isNaN(numericValue) || numericValue <= 0) {
-      // 提示使用者，但不更新狀態
-      if (value !== "") {
-        toast({
-          title: "無效輸入",
-          description: `${field === "duration" ? "時長" : "價格"}必須是大於0的數字`,
-          variant: "destructive"
-        });
+  // 監聽表單的變化，例如當限時方案關閉時，清除相關字段
+  useEffect(() => {
+    const subscription = form.watch((value, { name }) => {
+      if (name === "isLimitedTime" && value.isLimitedTime === false) {
+        form.setValue("limitedStartDate", null);
+        form.setValue("limitedEndDate", null);
+        form.setValue("limitedSpecialPrice", null);
+        form.setValue("limitedDiscountPercent", null);
+        form.setValue("limitedNote", null);
       }
-      return;
-    }
-    
+
+      if (name === "isFlashSale" && value.isFlashSale === false) {
+        form.setValue("flashSaleNote", null);
+        // 如果前面沒有設置期間限定，也清除日期
+        if (!value.isLimitedTime) {
+          form.setValue("limitedStartDate", null);
+          form.setValue("limitedEndDate", null);
+        }
+      }
+
+      if (name === "isRecommended" && value.isRecommended === false) {
+        form.setValue("recommendOrder", null);
+      }
+    });
+
+    return () => subscription.unsubscribe();
+  }, [form]);
+
+  // 處理時長的變更
+  const handleDurationChange = (idx: number, field: 'duration' | 'price', value: string) => {
     const newDurations = [...durations];
-    newDurations[index][field] = field === "duration" ? Math.floor(numericValue) : numericValue;
-    setDurations(newDurations);
-    setValue("durations", newDurations);
-  };
-
-  const toggleMasseur = (masId: string) => {
-    const currentMasseurs = selectedMasseurs;
-    const exists = currentMasseurs.some((m) => m.id === masId);
-
-    if (exists) {
-      const newMasseurs = currentMasseurs.filter((m) => m.id !== masId);
-      if (newMasseurs.length === 0) {
-        toast({
-          title: "無法移除",
-          description: "至少需要選擇一位按摩師",
-          variant: "destructive"
-        });
-        return;
-      }
-      setValue("masseurs", newMasseurs);
-    } else {
-      setValue("masseurs", [...currentMasseurs, { id: masId }]);
-    }
-  };
-
-  const handleFormSubmit = async (data: ServiceFormData) => {
-    setIsSubmitting(true);
-    setError(null);
+    const numValue = parseFloat(value);
     
-    try {
-      // 確保所有時長和價格都是有效數字
-      const validDurations = data.durations.map(d => ({
-        duration: typeof d.duration === 'number' ? d.duration : Math.floor(Number(d.duration)),
-        price: typeof d.price === 'number' ? d.price : Number(d.price)
-      }));
-      
-      // 驗證價格和時間有效性
-      const invalidDurations = validDurations.filter(
-        d => isNaN(d.duration) || d.duration <= 0 || isNaN(d.price) || d.price <= 0
-      );
-      
-      if (invalidDurations.length > 0) {
-        throw new Error("所有時長必須是大於0的整數，價格必須是大於0的數字");
-      }
-      
-      // 使用有效的數據
-      const formData = {
-        ...data,
-        durations: validDurations,
-        recommendOrder: typeof data.recommendOrder === 'number' ? 
-          data.recommendOrder : Number(data.recommendOrder),
-        flashSalePercent: data.isFlashSale && data.flashSalePercent ? 
-          Number(data.flashSalePercent) : null,
-        flashSalePrice: data.isFlashSale && data.flashSalePrice ? 
-          Number(data.flashSalePrice) : null,
-        price: 0, // 先設定一個默認值
-        duration: 0 // 先設定一個默認值
-      };
-      
-      // 使用第一個時長和價格作為主要價格和時長
-      if (formData.durations.length > 0) {
-        formData.price = formData.durations[0].price;
-        formData.duration = formData.durations[0].duration;
-      }
-      
-      console.log("提交的表單數據:", JSON.stringify(formData, null, 2));
-      
-      await onSubmit(formData);
-      
-      toast({
-        title: "成功",
-        description: initialData ? "服務更新成功" : "服務創建成功",
-      });
-    } catch (err) {
-      console.error("服務表單提交錯誤:", err);
-      setError(err instanceof Error ? err.message : "服務保存失敗，請稍後再試");
-      toast({
-        title: "錯誤",
-        description: err instanceof Error ? err.message : "服務保存失敗，請稍後再試",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSubmitting(false);
+    if (!isNaN(numValue) && numValue > 0) {
+      newDurations[idx][field] = field === 'duration' ? Math.floor(numValue) : numValue;
+      setDurations(newDurations);
     }
+  };
+
+  // 添加新的時長選項
+  const addDuration = () => {
+    setDurations([...durations, { duration: 90, price: 2500 }]);
+  };
+
+  // 移除時長選項
+  const removeDuration = (idx: number) => {
+    if (durations.length > 1) {
+      setDurations(durations.filter((_, i) => i !== idx));
+    }
+  };
+
+  // 切換按摩師選擇
+  const toggleMasseur = (id: string) => {
+    const currentMasseurs = form.getValues("masseurs") || [];
+    const exists = currentMasseurs.some((m: any) => m.id === id);
+    
+    if (exists) {
+      form.setValue(
+        "masseurs",
+        currentMasseurs.filter((m: any) => m.id !== id)
+      );
+    } else {
+      form.setValue("masseurs", [...currentMasseurs, { id }]);
+    }
+  };
+
+  // 檢查按摩師是否已選中
+  const isMasseurSelected = (id: string) => {
+    const currentMasseurs = form.getValues("masseurs") || [];
+    return currentMasseurs.some((m: any) => m.id === id);
+  };
+
+  // 提交表單
+  const handleFormSubmit = (values: z.infer<typeof serviceSchema>) => {
+    // 提取第一個時長作為主時長和價格
+    const primaryDuration = durations[0];
+    
+    // 構建提交數據
+    const submitData = {
+      ...values,
+      price: primaryDuration.price,
+      duration: primaryDuration.duration,
+      durations,
+      // 後端接口需要的字段名兼容
+      isRecommend: values.isRecommended,
+      recommendOrder: values.isRecommended ? values.recommendOrder : 0,
+    };
+    
+    onSubmit(submitData);
   };
 
   return (
-    <form onSubmit={handleSubmit(handleFormSubmit)} className="space-y-6">
-      {error && (
-        <div className="p-4 mb-4 border border-red-400 bg-red-50 text-red-700 rounded-md">
-          {error}
-        </div>
-      )}
-      
-      <div className="space-y-2">
-        <Label htmlFor="name">服務名稱</Label>
-        <Input id="name" {...register("name")} />
-        {errors.name && (
-          <p className="text-sm text-red-500">{errors.name.message}</p>
-        )}
-      </div>
+    <Form {...form}>
+      <form onSubmit={form.handleSubmit(handleFormSubmit)} className="space-y-8">
+        {/* 服務名稱 */}
+        <FormField
+          control={form.control}
+          name="name"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>服務名稱</FormLabel>
+              <FormControl>
+                <Input placeholder="請輸入服務名稱" {...field} />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      <div className="space-y-2">
-        <Label htmlFor="description">服務描述</Label>
-        <Textarea id="description" {...register("description")} />
-        {errors.description && (
-          <p className="text-sm text-red-500">{errors.description.message}</p>
-        )}
-      </div>
+        {/* 服務描述 */}
+        <FormField
+          control={form.control}
+          name="description"
+          render={({ field }) => (
+            <FormItem>
+              <FormLabel>服務描述</FormLabel>
+              <FormControl>
+                <Textarea
+                  placeholder="請輸入服務描述"
+                  className="resize-none"
+                  {...field}
+                  value={field.value || ""}
+                />
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      <div className="space-y-2">
-        <Label>服務類型</Label>
-        <RadioGroup
-          defaultValue={initialData?.type || "SINGLE"}
-          onValueChange={(value: "SINGLE" | "COMBO") => setValue("type", value)}
-        >
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="SINGLE" id="single" />
-            <Label htmlFor="single">單人服務</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="COMBO" id="combo" />
-            <Label htmlFor="combo">組合服務</Label>
-          </div>
-        </RadioGroup>
-        {errors.type && (
-          <p className="text-sm text-red-500">{errors.type.message}</p>
-        )}
-      </div>
+        {/* 服務類型 */}
+        <FormField
+          control={form.control}
+          name="type"
+          render={({ field }) => (
+            <FormItem className="space-y-3">
+              <FormLabel>服務類型</FormLabel>
+              <FormControl>
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  className="flex flex-row space-x-4"
+                >
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="SINGLE" />
+                    </FormControl>
+                    <FormLabel className="font-normal cursor-pointer">
+                      單項服務
+                    </FormLabel>
+                  </FormItem>
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="COMBO" />
+                    </FormControl>
+                    <FormLabel className="font-normal cursor-pointer">
+                      套餐服務
+                    </FormLabel>
+                  </FormItem>
+                </RadioGroup>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      <div className="space-y-2">
-        <Label>服務分類</Label>
-        <RadioGroup
-          defaultValue={initialData?.category || "MASSAGE"}
-          onValueChange={(value: "MASSAGE" | "CARE" | "TREATMENT") => setValue("category", value)}
-        >
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="MASSAGE" id="massage" />
-            <Label htmlFor="massage">按摩</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="CARE" id="care" />
-            <Label htmlFor="care">護理</Label>
-          </div>
-          <div className="flex items-center space-x-2">
-            <RadioGroupItem value="TREATMENT" id="treatment" />
-            <Label htmlFor="treatment">療程</Label>
-          </div>
-        </RadioGroup>
-        {errors.category && (
-          <p className="text-sm text-red-500">{errors.category.message}</p>
-        )}
-      </div>
+        {/* 服務類別 */}
+        <FormField
+          control={form.control}
+          name="category"
+          render={({ field }) => (
+            <FormItem className="space-y-3">
+              <FormLabel>服務類別</FormLabel>
+              <FormControl>
+                <RadioGroup
+                  onValueChange={field.onChange}
+                  defaultValue={field.value}
+                  className="flex flex-row space-x-4"
+                >
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="MASSAGE" />
+                    </FormControl>
+                    <FormLabel className="font-normal cursor-pointer">
+                      按摩
+                    </FormLabel>
+                  </FormItem>
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="CARE" />
+                    </FormControl>
+                    <FormLabel className="font-normal cursor-pointer">
+                      護理
+                    </FormLabel>
+                  </FormItem>
+                  <FormItem className="flex items-center space-x-2 space-y-0">
+                    <FormControl>
+                      <RadioGroupItem value="TREATMENT" />
+                    </FormControl>
+                    <FormLabel className="font-normal cursor-pointer">
+                      療程
+                    </FormLabel>
+                  </FormItem>
+                </RadioGroup>
+              </FormControl>
+              <FormMessage />
+            </FormItem>
+          )}
+        />
 
-      {/* 期間限定選項 */}
-      <div className="space-y-4 p-4 border rounded-md bg-gray-50">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="isLimitedTime" className="text-base font-semibold">期間限定服務</Label>
-          <Switch
-            id="isLimitedTime"
-            checked={isLimitedTime}
-            onCheckedChange={(checked) => setValue("isLimitedTime", checked)}
-          />
-        </div>
-        
-        {isLimitedTime && (
-          <div className="space-y-4 pt-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div>
-                <Label htmlFor="limitedStartDate">開始日期</Label>
-                <div className="mt-1">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !limitedStartDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {limitedStartDate ? format(limitedStartDate, "yyyy-MM-dd") : "選擇開始日期"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={limitedStartDate || undefined}
-                        onSelect={(date) => setValue("limitedStartDate", date)}
-                        locale={zhTW}
-                      />
-                    </PopoverContent>
-                  </Popover>
+        {/* 期間限定服務 */}
+        <FormField
+          control={form.control}
+          name="isLimitedTime"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <FormLabel>期間限定服務</FormLabel>
+                  <FormDescription>
+                    設置服務在特定時間段內提供特殊價格
+                  </FormDescription>
                 </div>
-                {errors.limitedStartDate && (
-                  <p className="text-sm text-red-500">{errors.limitedStartDate.message}</p>
-                )}
-              </div>
-              
-              <div>
-                <Label htmlFor="limitedEndDate">結束日期</Label>
-                <div className="mt-1">
-                  <Popover>
-                    <PopoverTrigger asChild>
-                      <Button
-                        variant={"outline"}
-                        className={cn(
-                          "w-full justify-start text-left font-normal",
-                          !limitedEndDate && "text-muted-foreground"
-                        )}
-                      >
-                        <CalendarIcon className="mr-2 h-4 w-4" />
-                        {limitedEndDate ? format(limitedEndDate, "yyyy-MM-dd") : "選擇結束日期"}
-                      </Button>
-                    </PopoverTrigger>
-                    <PopoverContent className="w-auto p-0" align="start">
-                      <Calendar
-                        mode="single"
-                        selected={limitedEndDate || undefined}
-                        onSelect={(date) => setValue("limitedEndDate", date)}
-                        locale={zhTW}
-                        disabled={(date) => (limitedStartDate ? date < limitedStartDate : false)}
-                      />
-                    </PopoverContent>
-                  </Popover>
-                </div>
-                {errors.limitedEndDate && (
-                  <p className="text-sm text-red-500">{errors.limitedEndDate.message}</p>
-                )}
-              </div>
-            </div>
-            <p className="text-sm text-gray-500">
-              期間限定服務將僅在指定的日期範圍內顯示，超出日期範圍後將自動隱藏。
-            </p>
-          </div>
-        )}
-      </div>
-
-      {/* 快閃方案選項 */}
-      <div className="space-y-4 p-4 border rounded-md bg-gray-50">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="isFlashSale" className="text-base font-semibold">快閃方案</Label>
-          <Switch
-            id="isFlashSale"
-            checked={isFlashSale}
-            onCheckedChange={(checked) => setValue("isFlashSale", checked)}
-          />
-        </div>
-        
-        {isFlashSale && (
-          <div className="space-y-4 pt-2">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label htmlFor="flashSalePercent">折扣百分比 (%)</Label>
-                <div className="relative">
-                  <Input 
-                    id="flashSalePercent"
-                    type="number"
-                    min="0"
-                    max="100"
-                    placeholder="例如: 80 (表示8折)"
-                    {...register("flashSalePercent", {
-                      setValueAs: (v) => v === "" ? null : Number(v)
-                    })}
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
                   />
-                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2">%</span>
-                </div>
-                <p className="text-xs text-gray-500">輸入0到100之間的數字，表示折扣百分比</p>
-                {errors.flashSalePercent && (
-                  <p className="text-sm text-red-500">{errors.flashSalePercent.message}</p>
-                )}
+                </FormControl>
               </div>
+              <FormMessage />
               
-              <div className="space-y-2">
-                <Label htmlFor="flashSalePrice">特價 (元)</Label>
-                <div className="relative">
-                  <Input 
-                    id="flashSalePrice"
-                    type="number"
-                    min="0"
-                    placeholder="例如: 1000"
-                    {...register("flashSalePrice", {
-                      setValueAs: (v) => v === "" ? null : Number(v)
-                    })}
+              {/* 期間限定起始日期 */}
+              {form.watch("isLimitedTime") && (
+                <div className="space-y-4 mt-4 border p-4 rounded-lg">
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="limitedStartDate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>開始日期</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                    "pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(field.value, "yyyy-MM-dd", { locale: zhTW })
+                                  ) : (
+                                    <span>選擇開始日期</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={field.value || undefined}
+                                onSelect={field.onChange}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="limitedEndDate"
+                      render={({ field }) => (
+                        <FormItem className="flex flex-col">
+                          <FormLabel>結束日期</FormLabel>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <FormControl>
+                                <Button
+                                  variant={"outline"}
+                                  className={cn(
+                                    "pl-3 text-left font-normal",
+                                    !field.value && "text-muted-foreground"
+                                  )}
+                                >
+                                  {field.value ? (
+                                    format(field.value, "yyyy-MM-dd", { locale: zhTW })
+                                  ) : (
+                                    <span>選擇結束日期</span>
+                                  )}
+                                  <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                </Button>
+                              </FormControl>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={field.value || undefined}
+                                onSelect={field.onChange}
+                                initialFocus
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                    <FormField
+                      control={form.control}
+                      name="limitedDiscountPercent"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>折扣百分比 (%)</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="例如: 80 表示八折"
+                              {...field}
+                              value={field.value === null ? "" : field.value}
+                              onChange={(e) => {
+                                const value = e.target.value === "" ? null : parseInt(e.target.value);
+                                field.onChange(value);
+                                if (value !== null) {
+                                  form.setValue("limitedSpecialPrice", null);
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            設置折扣百分比，例如80表示打八折 (原價的80%)
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                    
+                    <FormField
+                      control={form.control}
+                      name="limitedSpecialPrice"
+                      render={({ field }) => (
+                        <FormItem>
+                          <FormLabel>特價金額</FormLabel>
+                          <FormControl>
+                            <Input
+                              type="number"
+                              placeholder="例如: 1800"
+                              {...field}
+                              value={field.value === null ? "" : field.value}
+                              onChange={(e) => {
+                                const value = e.target.value === "" ? null : parseFloat(e.target.value);
+                                field.onChange(value);
+                                if (value !== null) {
+                                  form.setValue("limitedDiscountPercent", null);
+                                }
+                              }}
+                            />
+                          </FormControl>
+                          <FormDescription>
+                            直接設置特價金額，與折扣百分比二選一
+                          </FormDescription>
+                          <FormMessage />
+                        </FormItem>
+                      )}
+                    />
+                  </div>
+                  
+                  <FormField
+                    control={form.control}
+                    name="limitedNote"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>期間限定備註</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="添加備註說明"
+                            className="resize-none"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
                   />
-                  <span className="absolute right-3 top-1/2 transform -translate-y-1/2">NT$</span>
                 </div>
-                <p className="text-xs text-gray-500">直接輸入特價金額，優先於折扣百分比</p>
-                {errors.flashSalePrice && (
-                  <p className="text-sm text-red-500">{errors.flashSalePrice.message}</p>
-                )}
+              )}
+            </FormItem>
+          )}
+        />
+
+        {/* 快閃方案 */}
+        <FormField
+          control={form.control}
+          name="isFlashSale"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <FormLabel>快閃方案</FormLabel>
+                  <FormDescription>
+                    設置服務在特定時間段內快閃可用，不涉及價格變動
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
               </div>
-            </div>
-            
-            <div className="space-y-2">
-              <Label htmlFor="flashSaleNote">快閃備註</Label>
-              <Textarea 
-                id="flashSaleNote"
-                placeholder="例如: 限時七天特價，數量有限！"
-                {...register("flashSaleNote")}
-              />
-              <p className="text-xs text-gray-500">添加快閃方案的額外說明，如限制條件或其他備註</p>
-            </div>
-            
-            <p className="text-sm text-gray-500">
-              快閃方案將使用特殊樣式顯示在服務列表中，吸引用戶注意。如果同時設置了特價和折扣百分比，系統將優先使用特價。
-            </p>
-          </div>
-        )}
-      </div>
+              <FormMessage />
+              
+              {form.watch("isFlashSale") && (
+                <div className="space-y-4 mt-4 border p-4 rounded-lg">
+                  {!form.watch("isLimitedTime") && (
+                    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                      <FormField
+                        control={form.control}
+                        name="limitedStartDate"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>開始日期</FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                      "pl-3 text-left font-normal",
+                                      !field.value && "text-muted-foreground"
+                                    )}
+                                  >
+                                    {field.value ? (
+                                      format(field.value, "yyyy-MM-dd", { locale: zhTW })
+                                    ) : (
+                                      <span>選擇開始日期</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value || undefined}
+                                  onSelect={field.onChange}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                      
+                      <FormField
+                        control={form.control}
+                        name="limitedEndDate"
+                        render={({ field }) => (
+                          <FormItem className="flex flex-col">
+                            <FormLabel>結束日期</FormLabel>
+                            <Popover>
+                              <PopoverTrigger asChild>
+                                <FormControl>
+                                  <Button
+                                    variant={"outline"}
+                                    className={cn(
+                                      "pl-3 text-left font-normal",
+                                      !field.value && "text-muted-foreground"
+                                    )}
+                                  >
+                                    {field.value ? (
+                                      format(field.value, "yyyy-MM-dd", { locale: zhTW })
+                                    ) : (
+                                      <span>選擇結束日期</span>
+                                    )}
+                                    <CalendarIcon className="ml-auto h-4 w-4 opacity-50" />
+                                  </Button>
+                                </FormControl>
+                              </PopoverTrigger>
+                              <PopoverContent className="w-auto p-0" align="start">
+                                <Calendar
+                                  mode="single"
+                                  selected={field.value || undefined}
+                                  onSelect={field.onChange}
+                                  initialFocus
+                                />
+                              </PopoverContent>
+                            </Popover>
+                            <FormMessage />
+                          </FormItem>
+                        )}
+                      />
+                    </div>
+                  )}
+                  
+                  <FormField
+                    control={form.control}
+                    name="flashSaleNote"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>快閃備註</FormLabel>
+                        <FormControl>
+                          <Textarea
+                            placeholder="添加快閃備註說明"
+                            className="resize-none"
+                            {...field}
+                            value={field.value || ""}
+                          />
+                        </FormControl>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+            </FormItem>
+          )}
+        />
 
-      {/* 其他表單內容 */}
-      
-      <div className="space-y-2">
-        <div className="flex items-center justify-between">
-          <Label htmlFor="isRecommended">設為推薦服務</Label>
-          <Switch
-            id="isRecommended"
-            checked={isRecommended}
-            onCheckedChange={(checked) => setValue("isRecommended", checked)}
-          />
-        </div>
-        {isRecommended && (
-          <div className="mt-2">
-            <Label htmlFor="recommendOrder">推薦排序</Label>
-            <Input
-              id="recommendOrder"
-              type="number"
-              min="0"
-              {...register("recommendOrder", {
-                valueAsNumber: true,
-              })}
-            />
-            <p className="text-xs text-gray-500 mt-1">數字越小排序越靠前</p>
-          </div>
-        )}
-      </div>
+        {/* 推薦服務 */}
+        <FormField
+          control={form.control}
+          name="isRecommended"
+          render={({ field }) => (
+            <FormItem className="flex flex-col">
+              <div className="flex items-center justify-between">
+                <div className="space-y-0.5">
+                  <FormLabel>推薦服務</FormLabel>
+                  <FormDescription>
+                    將此服務標記為推薦服務，會在首頁和服務列表中優先顯示
+                  </FormDescription>
+                </div>
+                <FormControl>
+                  <Switch
+                    checked={field.value}
+                    onCheckedChange={field.onChange}
+                  />
+                </FormControl>
+              </div>
+              <FormMessage />
+              
+              {/* 推薦排序 */}
+              {form.watch("isRecommended") && (
+                <div className="mt-4">
+                  <FormField
+                    control={form.control}
+                    name="recommendOrder"
+                    render={({ field }) => (
+                      <FormItem>
+                        <FormLabel>推薦排序</FormLabel>
+                        <FormControl>
+                          <Input
+                            type="number"
+                            placeholder="排序數字，越小越靠前"
+                            {...field}
+                            value={field.value === null ? "" : field.value}
+                            onChange={(e) => field.onChange(e.target.value === "" ? null : parseInt(e.target.value))}
+                          />
+                        </FormControl>
+                        <FormDescription>
+                          數字越小排序越靠前，可以調整多個推薦服務的顯示順序
+                        </FormDescription>
+                        <FormMessage />
+                      </FormItem>
+                    )}
+                  />
+                </div>
+              )}
+            </FormItem>
+          )}
+        />
 
-      <div className="space-y-4">
-        <div className="flex justify-between items-center">
-          <Label>服務時長與價格</Label>
-          <Button type="button" variant="outline" size="sm" onClick={addDuration}>
-            添加時長
-          </Button>
-        </div>
-        {durations.map((duration, index) => (
-          <div key={index} className="flex space-x-2 items-center">
-            <div className="flex-1">
-              <Label htmlFor={`duration-${index}`}>時長 (分鐘)</Label>
-              <Input
-                id={`duration-${index}`}
-                type="number"
-                value={duration.duration}
-                onChange={(e) => handleDurationChange(index, "duration", e.target.value)}
-              />
-            </div>
-            <div className="flex-1">
-              <Label htmlFor={`price-${index}`}>價格 (元)</Label>
-              <Input
-                id={`price-${index}`}
-                type="number"
-                value={duration.price}
-                onChange={(e) => handleDurationChange(index, "price", e.target.value)}
-              />
-            </div>
-            <button
+        {/* 服務時長與價格 */}
+        <div className="space-y-4">
+          <div className="flex justify-between items-center">
+            <h3 className="text-lg font-medium">服務時長與價格</h3>
+            <Button
               type="button"
-              className="mt-6 p-2 text-red-500 hover:text-red-700"
-              onClick={() => removeDuration(index)}
+              variant="outline"
+              size="sm"
+              onClick={addDuration}
             >
-              <Trash2 size={18} />
-            </button>
+              <Plus className="h-4 w-4 mr-2" />
+              添加時長
+            </Button>
           </div>
-        ))}
-        {errors.durations && (
-          <p className="text-sm text-red-500">{errors.durations.message}</p>
-        )}
-      </div>
+          
+          {durations.map((duration, idx) => (
+            <div key={idx} className="flex space-x-2">
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">
+                  時長 (分鐘)
+                </label>
+                <Input
+                  type="number"
+                  min="1"
+                  placeholder="服務時長"
+                  value={duration.duration}
+                  onChange={(e) => handleDurationChange(idx, 'duration', e.target.value)}
+                />
+              </div>
+              <div className="flex-1">
+                <label className="block text-sm font-medium mb-1">
+                  價格 (NT$)
+                </label>
+                <Input
+                  type="number"
+                  min="0"
+                  step="10"
+                  placeholder="服務價格"
+                  value={duration.price}
+                  onChange={(e) => handleDurationChange(idx, 'price', e.target.value)}
+                />
+              </div>
+              <div className="flex items-end">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="mb-1"
+                  onClick={() => removeDuration(idx)}
+                  disabled={durations.length <= 1}
+                >
+                  <X className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+          ))}
+          
+          {form.formState.errors.durations && (
+            <p className="text-sm font-medium text-destructive">
+              {form.formState.errors.durations.message}
+            </p>
+          )}
+        </div>
 
-      <div className="space-y-2">
-        <Label>選擇按摩師</Label>
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
-          {masseurs.map((masseur) => {
-            const isSelected = selectedMasseurs.some((m) => m.id === masseur.id);
-            return (
-              <button
+        {/* 按摩師選擇 */}
+        <div className="space-y-4">
+          <h3 className="text-lg font-medium">選擇提供此服務的按摩師</h3>
+          <div className="flex flex-wrap gap-2">
+            {masseurs.map((masseur) => (
+              <Badge
                 key={masseur.id}
-                type="button"
-                className={`p-2 rounded border ${
-                  isSelected
-                    ? "border-blue-500 bg-blue-50 text-blue-700"
-                    : "border-gray-300 hover:border-gray-400"
-                }`}
+                variant={isMasseurSelected(masseur.id) ? "default" : "outline"}
+                className="cursor-pointer text-sm py-2 px-3"
                 onClick={() => toggleMasseur(masseur.id)}
               >
                 {masseur.name}
-              </button>
-            );
-          })}
-        </div>
-        {errors.masseurs && (
-          <p className="text-sm text-red-500">{errors.masseurs.message}</p>
-        )}
-      </div>
-
-      <div className="flex justify-end space-x-2 pt-4">
-        <Button type="submit" disabled={isSubmitting}>
-          {isSubmitting ? (
-            <>
-              <Loader2 size={18} className="animate-spin mr-2" />
-              儲存中...
-            </>
-          ) : initialData ? (
-            "更新服務"
-          ) : (
-            "創建服務"
+              </Badge>
+            ))}
+          </div>
+          {form.formState.errors.masseurs && (
+            <p className="text-sm font-medium text-destructive">
+              {form.formState.errors.masseurs.message}
+            </p>
           )}
-        </Button>
-      </div>
-    </form>
-  );
+        </div>
+
+        {/* 提交按鈕 */}
+        <div className="flex justify-end">
+          <Button type="submit" disabled={form.formState.isSubmitting}>
+            {form.formState.isSubmitting
+              ? "處理中..."
+              : initialData
+              ? "更新服務"
+              : "創建服務"}
+          </Button>
+        </div>
+      </form>
+    </Form>
+  )
 } 

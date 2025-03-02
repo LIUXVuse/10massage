@@ -24,10 +24,11 @@ interface Service {
   isLimitedTime: boolean;
   limitedStartDate: string | null;
   limitedEndDate: string | null;
+  limitedSpecialPrice: number | null;
+  limitedDiscountPercent: number | null;
+  limitedNote: string | null;
   // 快閃方案相關字段
   isFlashSale: boolean;
-  flashSalePercent: number | null;
-  flashSalePrice: number | null;
   flashSaleNote: string | null;
   // 關聯字段
   durations: Array<{
@@ -115,10 +116,11 @@ export default function ServicesPage() {
           isLimitedTime: !!service.isLimitedTime,
           limitedStartDate: service.limitedStartDate,
           limitedEndDate: service.limitedEndDate,
+          limitedSpecialPrice: service.limitedSpecialPrice,
+          limitedDiscountPercent: service.limitedDiscountPercent,
+          limitedNote: service.limitedNote,
           // 快閃方案相關字段
           isFlashSale: !!service.isFlashSale,
-          flashSalePercent: service.flashSalePercent,
-          flashSalePrice: service.flashSalePrice,
           flashSaleNote: service.flashSaleNote,
           // 確保durations是數組
           durations: Array.isArray(service.durations) 
@@ -149,7 +151,11 @@ export default function ServicesPage() {
   const fetchMasseurs = async () => {
     try {
       const response = await fetch("/api/masseurs");
-      if (!response.ok) throw new Error("Failed to fetch masseurs");
+      
+      if (!response.ok) {
+        throw new Error("Failed to fetch masseurs");
+      }
+      
       const data = await response.json();
       setMasseurs(data);
     } catch (error) {
@@ -159,63 +165,42 @@ export default function ServicesPage() {
 
   const handleSubmit = async (data: any) => {
     try {
-      console.log("準備提交服務數據:", data);
-      const url = selectedService
-        ? `/api/services/${selectedService.id}`
-        : "/api/services";
-      const method = selectedService ? "PUT" : "POST";
-
-      // 確保數據格式正確
-      const formattedData = {
-        ...data,
-        durations: data.durations.map((d: any) => ({
-          duration: Number(d.duration),
-          price: Number(d.price)
-        })),
-        recommendOrder: Number(data.recommendOrder || 0),
-        isRecommended: !!data.isRecommended,
-        // 如果有ID，添加到數據中
-        ...(selectedService ? { id: selectedService.id } : {})
-      };
-
-      console.log("提交服務數據:", JSON.stringify(formattedData, null, 2));
-
-      const response = await fetch(url, {
+      const method = data.id ? "PUT" : "POST";
+      const apiUrl = "/api/services" + (data.id ? `?id=${data.id}` : "");
+      
+      // 提交表單數據到API
+      const response = await fetch(apiUrl, {
         method,
-        headers: {
-          "Content-Type": "application/json",
-        },
-        body: JSON.stringify(formattedData),
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(data),
       });
-
+      
       if (!response.ok) {
-        const errorData = await response.json();
-        console.error("服務保存錯誤:", errorData);
-        throw new Error(errorData.error || "保存服務失敗");
+        throw new Error("Failed to save service");
       }
-
-      const result = await response.json();
-      console.log("服務保存結果:", result);
-
+      
       setIsEditing(false);
       setSelectedService(null);
       fetchServices();
     } catch (error) {
       console.error("Error saving service:", error);
-      alert(error instanceof Error ? error.message : "保存服務失敗，請檢查數據格式並重試");
     }
   };
 
   const handleDelete = async (id: string) => {
-    if (!userIsAdmin) return; // 非管理員不能刪除
-    if (!confirm("確定要刪除這個服務嗎？")) return;
-
+    if (!window.confirm("確定要刪除此服務嗎？此操作不可恢復。")) {
+      return;
+    }
+    
     try {
-      const response = await fetch(`/api/services/${id}`, {
+      const response = await fetch(`/api/services?id=${id}`, {
         method: "DELETE",
       });
-
-      if (!response.ok) throw new Error("Failed to delete service");
+      
+      if (!response.ok) {
+        throw new Error("Failed to delete service");
+      }
+      
       fetchServices();
     } catch (error) {
       console.error("Error deleting service:", error);
@@ -223,30 +208,22 @@ export default function ServicesPage() {
   };
 
   const handleEdit = (service: Service) => {
-    if (!userIsAdmin) return; // 非管理員不能編輯
     setSelectedService(service);
     setIsEditing(true);
   };
 
-  // 篩選函數
   const getFilteredServices = () => {
-    let filtered = services;
-    
-    // 先依據選擇的類別過濾
     if (selectedCategory === "ALL") {
-      // 所有服務，不需要過濾
+      return services;
     } else if (selectedCategory === "RECOMMENDED") {
-      filtered = filtered.filter(service => service.isRecommend);
+      return services.filter(service => service.isRecommend);
     } else if (selectedCategory === "LIMITED_TIME") {
-      filtered = filtered.filter(service => service.isLimitedTime);
+      return services.filter(service => service.isLimitedTime);
     } else if (selectedCategory === "FLASH_SALE") {
-      filtered = filtered.filter(service => service.isFlashSale);
+      return services.filter(service => service.isFlashSale);
     } else {
-      // 按類別過濾
-      filtered = filtered.filter(service => service.category === selectedCategory);
+      return services.filter(service => service.category === selectedCategory);
     }
-    
-    return filtered;
   }
 
   // 獲取已過濾的服務
@@ -414,29 +391,39 @@ export default function ServicesPage() {
                 )}
               </div>
 
-              {/* 期間限定日期顯示 */}
+              {/* 期間限定日期與價格顯示 */}
               {service.isLimitedTime && service.limitedStartDate && service.limitedEndDate && (
-                <div className="mt-2 text-sm text-gray-600">
-                  限定期間: {format(new Date(service.limitedStartDate), 'yyyy/MM/dd', { locale: zhTW })} 至 {format(new Date(service.limitedEndDate), 'yyyy/MM/dd', { locale: zhTW })}
-                </div>
-              )}
-              
-              {/* 快閃方案價格顯示 */}
-              {service.isFlashSale && (
-                <div className="mt-2">
-                  {service.flashSalePrice ? (
+                <div className="mt-2 space-y-1">
+                  <div className="text-sm text-gray-600">
+                    限定期間: {format(new Date(service.limitedStartDate), 'yyyy/MM/dd', { locale: zhTW })} 至 {format(new Date(service.limitedEndDate), 'yyyy/MM/dd', { locale: zhTW })}
+                  </div>
+                  
+                  {service.limitedSpecialPrice ? (
                     <div className="flex items-center">
-                      <span className="text-red-600 font-bold">特價: NT${service.flashSalePrice}</span>
+                      <span className="text-red-600 font-bold">特價: NT${service.limitedSpecialPrice}</span>
                       {service.durations[0] && (
                         <span className="text-gray-400 line-through ml-2">原價: NT${service.durations[0].price}</span>
                       )}
                     </div>
-                  ) : service.flashSalePercent ? (
-                    <div className="text-red-600 font-bold">折扣: {service.flashSalePercent}% OFF</div>
+                  ) : service.limitedDiscountPercent ? (
+                    <div className="text-red-600 font-bold">折扣: {service.limitedDiscountPercent}% OFF</div>
                   ) : null}
                   
+                  {service.limitedNote && (
+                    <div className="text-sm text-gray-600">{service.limitedNote}</div>
+                  )}
+                </div>
+              )}
+              
+              {/* 快閃方案日期顯示 */}
+              {service.isFlashSale && service.limitedStartDate && service.limitedEndDate && (
+                <div className="mt-2 space-y-1">
+                  <div className="text-sm text-gray-600">
+                    快閃期間: {format(new Date(service.limitedStartDate), 'yyyy/MM/dd', { locale: zhTW })} 至 {format(new Date(service.limitedEndDate), 'yyyy/MM/dd', { locale: zhTW })}
+                  </div>
+                  
                   {service.flashSaleNote && (
-                    <div className="text-sm text-gray-600 mt-1">{service.flashSaleNote}</div>
+                    <div className="text-sm text-gray-600">{service.flashSaleNote}</div>
                   )}
                 </div>
               )}
