@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/db/prisma";
+import { getToken } from 'next-auth/jwt';
 
 // 支持Cloudflare Pages和Prisma
 export const runtime = 'nodejs';
@@ -9,138 +10,148 @@ interface MasseurRelation {
   id: string;
 }
 
+// 檢查用戶是否為管理員
+async function isAdmin(request: Request) {
+  const token = await getToken({ req: request as any });
+  return token?.role === 'ADMIN' || token?.role?.toUpperCase() === 'ADMIN';
+}
+
+// 獲取指定ID的服務
 export async function GET(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
+    const id = params.id;
     const service = await prisma.service.findUnique({
-      where: { id: params.id },
+      where: { id },
       include: {
-        durations: true,
         masseurs: {
-          include: {
-            masseur: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
+          select: {
+            id: true,
+            name: true,
+            image: true
+          }
+        }
+      }
     });
 
     if (!service) {
-      return NextResponse.json(
-        { error: "Service not found" },
-        { status: 404 }
-      );
+      return NextResponse.json({ error: '找不到服務' }, { status: 404 });
     }
 
     return NextResponse.json(service);
   } catch (error) {
-    console.error("Error fetching service:", error);
-    return NextResponse.json(
-      { error: "Failed to fetch service" },
-      { status: 500 }
-    );
+    console.error('獲取服務失敗:', error);
+    return NextResponse.json({ error: `獲取服務失敗: ${error}` }, { status: 500 });
   }
 }
 
+// 更新指定ID的服務
 export async function PUT(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
+    // 檢查是否為管理員
+    if (!await isAdmin(request)) {
+      return NextResponse.json({ error: '未授權訪問，僅管理員可以更新服務' }, { status: 403 });
+    }
+
+    const id = params.id;
     const body = await request.json();
-    const { name, description, type, category, isRecommended, recommendOrder, durations, masseurs } = body;
+    const {
+      name,
+      description,
+      price,
+      duration,
+      type,
+      category,
+      isRecommended,
+      masseurs,
+      // 新增支持durations數組
+      durations,
+    } = body;
 
-    // 刪除現有的時長和按摩師關聯
-    await prisma.$transaction([
-      prisma.serviceDuration.deleteMany({
-        where: { serviceId: params.id },
-      }),
-      prisma.masseurService.deleteMany({
-        where: { serviceId: params.id },
-      }),
-    ]);
+    // 如果提供了durations數組，使用第一個duration的值
+    const servicePrice = price || (durations && durations.length > 0 ? durations[0].price : 0);
+    const serviceDuration = duration || (durations && durations.length > 0 ? durations[0].duration : 0);
 
-    // 更新服務資訊並創建新的關聯
+    if (!servicePrice) {
+      return NextResponse.json({ error: '缺少價格(price)參數' }, { status: 400 });
+    }
+
+    if (!serviceDuration) {
+      return NextResponse.json({ error: '缺少時長(duration)參數' }, { status: 400 });
+    }
+
+    // 先獲取服務的當前按摩師
+    const currentService = await prisma.service.findUnique({
+      where: { id },
+      include: { masseurs: true }
+    });
+
+    if (!currentService) {
+      return NextResponse.json({ error: '找不到服務' }, { status: 404 });
+    }
+
+    // 更新服務
     const service = await prisma.service.update({
-      where: { id: params.id },
+      where: { id },
       data: {
         name,
         description,
+        price: parseFloat(servicePrice),
+        duration: parseInt(serviceDuration),
         type,
         category,
-        isRecommended,
-        recommendOrder,
-        durations: {
-          create: durations.map((d: { duration: number; price: number }) => ({
-            duration: d.duration,
-            price: d.price,
-          })),
-        },
+        isRecommend: isRecommended,
         masseurs: {
-          create: masseurs.map((m: MasseurRelation) => ({
-            masseur: {
-              connect: { id: m.id },
-            },
-          })),
-        },
-      },
-      include: {
-        durations: true,
-        masseurs: {
-          include: {
-            masseur: {
-              select: {
-                id: true,
-                name: true,
-              },
-            },
-          },
-        },
-      },
+          // 斷開所有現有關聯
+          disconnect: currentService.masseurs.map(m => ({ id: m.id })),
+          // 建立新關聯
+          connect: masseurs?.map((m: any) => ({ id: m.id })) || []
+        }
+      }
     });
 
     return NextResponse.json(service);
   } catch (error) {
-    console.error("Error updating service:", error);
-    return NextResponse.json(
-      { error: "Failed to update service" },
-      { status: 500 }
-    );
+    console.error('更新服務失敗:', error);
+    return NextResponse.json({ error: `更新服務失敗: ${error}` }, { status: 500 });
   }
 }
 
+// 刪除指定ID的服務
 export async function DELETE(
   request: Request,
   { params }: { params: { id: string } }
 ) {
   try {
-    // 刪除相關的時長和按摩師關聯
-    await prisma.$transaction([
-      prisma.serviceDuration.deleteMany({
-        where: { serviceId: params.id },
-      }),
-      prisma.masseurService.deleteMany({
-        where: { serviceId: params.id },
-      }),
-    ]);
+    // 檢查是否為管理員
+    if (!await isAdmin(request)) {
+      return NextResponse.json({ error: '未授權訪問，僅管理員可以刪除服務' }, { status: 403 });
+    }
 
-    // 刪除服務
+    const id = params.id;
+
+    // 先斷開與按摩師的關聯，再刪除服務
+    await prisma.service.update({
+      where: { id },
+      data: {
+        masseurs: {
+          disconnect: []
+        }
+      }
+    });
+
     await prisma.service.delete({
-      where: { id: params.id },
+      where: { id }
     });
 
     return NextResponse.json({ success: true });
   } catch (error) {
-    console.error("Error deleting service:", error);
-    return NextResponse.json(
-      { error: "Failed to delete service" },
-      { status: 500 }
-    );
+    console.error('刪除服務失敗:', error);
+    return NextResponse.json({ error: `刪除服務失敗: ${error}` }, { status: 500 });
   }
 } 

@@ -54,17 +54,31 @@ export async function POST(request: Request) {
       type,
       category,
       isRecommended,
-      masseurs
+      masseurs,
+      // 新增支持durations數組
+      durations,
     } = body;
+
+    // 如果提供了durations數組，使用第一個duration的值
+    const servicePrice = price || (durations && durations.length > 0 ? durations[0].price : 0);
+    const serviceDuration = duration || (durations && durations.length > 0 ? durations[0].duration : 0);
+
+    if (!servicePrice) {
+      return NextResponse.json({ error: '缺少價格(price)參數' }, { status: 400 });
+    }
+
+    if (!serviceDuration) {
+      return NextResponse.json({ error: '缺少時長(duration)參數' }, { status: 400 });
+    }
 
     const service = await prisma.service.create({
       data: {
         name,
         description,
-        price: parseFloat(price),
-        duration: parseInt(duration),
-        type: type || 'general',
-        category: category || 'massage',
+        price: parseFloat(servicePrice),
+        duration: parseInt(serviceDuration),
+        type: type || 'SINGLE',
+        category: category || 'MASSAGE',
         isRecommend: isRecommended || false,
         masseurs: {
           connect: masseurs?.map((m: any) => ({ id: m.id })) || []
@@ -75,7 +89,7 @@ export async function POST(request: Request) {
     return NextResponse.json(service);
   } catch (error) {
     console.error('創建服務失敗:', error);
-    return NextResponse.json({ error: '創建服務失敗' }, { status: 500 });
+    return NextResponse.json({ error: `創建服務失敗: ${error}` }, { status: 500 });
   }
 }
 
@@ -97,8 +111,22 @@ export async function PUT(request: Request) {
       type,
       category,
       isRecommended,
-      masseurs
+      masseurs,
+      // 新增支持durations數組
+      durations,
     } = body;
+
+    // 如果提供了durations數組，使用第一個duration的值
+    const servicePrice = price || (durations && durations.length > 0 ? durations[0].price : 0);
+    const serviceDuration = duration || (durations && durations.length > 0 ? durations[0].duration : 0);
+
+    if (!servicePrice) {
+      return NextResponse.json({ error: '缺少價格(price)參數' }, { status: 400 });
+    }
+
+    if (!serviceDuration) {
+      return NextResponse.json({ error: '缺少時長(duration)參數' }, { status: 400 });
+    }
 
     // 先獲取服務的當前按摩師
     const currentService = await prisma.service.findUnique({
@@ -116,8 +144,8 @@ export async function PUT(request: Request) {
       data: {
         name,
         description,
-        price: parseFloat(price),
-        duration: parseInt(duration),
+        price: parseFloat(servicePrice),
+        duration: parseInt(serviceDuration),
         type,
         category,
         isRecommend: isRecommended,
@@ -133,7 +161,7 @@ export async function PUT(request: Request) {
     return NextResponse.json(service);
   } catch (error) {
     console.error('更新服務失敗:', error);
-    return NextResponse.json({ error: '更新服務失敗' }, { status: 500 });
+    return NextResponse.json({ error: `更新服務失敗: ${error}` }, { status: 500 });
   }
 }
 
