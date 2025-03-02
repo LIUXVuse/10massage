@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server';
-import prisma from '@/lib/prisma';
+import { prisma } from '@/lib/db/prisma';
 import { getServerSession } from 'next-auth';
-import { authOptions } from '@/lib/auth/auth-options';
+import { getAuthOptions } from '@/lib/auth/auth.server';
 
 // 支持Node.js運行時
 export const runtime = 'nodejs';
@@ -10,6 +10,7 @@ export const revalidate = 3600; // 每小時重新驗證一次
 // 檢查用戶是否為管理員
 async function isAdmin(request: Request) {
   try {
+    const authOptions = await getAuthOptions();
     const session = await getServerSession(authOptions);
     return session?.user?.role === 'admin';
   } catch (error) {
