@@ -9,8 +9,14 @@ export const runtime = 'nodejs';
 
 // 檢查用戶是否為管理員
 async function isAdmin(request: Request) {
-  const token = await getToken({ req: request as any });
-  return token?.role === 'ADMIN';
+  try {
+    const token = await getToken({ req: request as any });
+    console.log('檢查管理員權限，當前Token:', token ? `存在(role=${token.role})` : '不存在');
+    return token?.role === 'ADMIN' || token?.role === 'admin'; // 添加小寫檢查
+  } catch (error) {
+    console.error('獲取令牌錯誤:', error);
+    return false;
+  }
 }
 
 // 轉換exec為Promise形式
@@ -24,9 +30,21 @@ export async function GET(request: Request) {
     const secretKey = searchParams.get('secret_key');
     const adminSecret = process.env.ADMIN_API_SECRET;
     
-    if (!(await isAdmin(request)) && secretKey !== adminSecret) {
+    console.log('訪問重置API - secretKey:', secretKey ? '已提供' : '未提供');
+    console.log('環境變數 ADMIN_API_SECRET:', adminSecret ? '已設置' : '未設置');
+    
+    const isAdminUser = await isAdmin(request);
+    console.log('是否管理員用戶:', isAdminUser);
+    
+    if (!isAdminUser && secretKey !== adminSecret) {
+      console.log('授權失敗 - 無管理員權限且密鑰不匹配');
       return NextResponse.json(
-        { error: '未授權訪問, 請使用管理員帳號或正確的密鑰' },
+        { 
+          error: '未授權訪問, 請使用管理員帳號或正確的密鑰',
+          isAdmin: isAdminUser,
+          secretKeyProvided: !!secretKey,
+          secretKeyValid: secretKey === adminSecret
+        },
         { status: 403 }
       );
     }
