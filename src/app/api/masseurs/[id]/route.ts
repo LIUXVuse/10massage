@@ -30,12 +30,7 @@ export async function GET(request: Request, { params }: Props) {
     const masseur = await prisma.masseur.findUnique({
       where: { id },
       include: {
-        services: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
+        services: true
       }
     });
 

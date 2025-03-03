@@ -13,12 +13,7 @@ export async function GET() {
     // 使用Prisma查詢按摩師列表，包括其服務項目和用戶信息
     const masseurs = await prisma.masseur.findMany({
       include: {
-        services: {
-          select: {
-            id: true,
-            name: true
-          }
-        }
+        services: true
       },
       orderBy: [
         // 使用 sortOrder 欄位作為主要排序依據，然後再按照 createdAt 降序排序

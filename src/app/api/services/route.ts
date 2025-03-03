@@ -45,12 +45,12 @@ export async function GET(request: Request) {
     
     // 如果要求活躍服務或公開服務，則只返回活躍的
     if (active === "true" || isPublic === "true") {
-      where.active = true;
+      where.isActive = true;
     }
     
     // 如果不是特別要求包含非活躍服務，則只返回活躍的
     if (withInactive !== "true" && active !== "false") {
-      where.active = true;
+      where.isActive = true;
     }
 
     // 對於公開API請求，篩選僅當前有效的限時優惠和閃購服務
@@ -67,8 +67,8 @@ export async function GET(request: Request) {
         // 當前有效的限時優惠
         {
           isLimitedTime: true,
-          limitedTimeStart: { lte: now },
-          limitedTimeEnd: { gte: now },
+          limitedStartDate: { lte: now },
+          limitedEndDate: { gte: now },
         },
         // 當前有效的閃購
         {
@@ -82,24 +82,15 @@ export async function GET(request: Request) {
     // 構建包含標準關聯的查詢
     const include: any = {
       durations: true,
-      masseurs: {
-        include: {
-          masseur: true,
-        },
-      },
+      masseurs: true,
     };
     
-    // 如果需要詳細信息，則包含其他關聯數據
+    // 如果需要詳細資訊，則添加額外的關聯
     if (details === "true") {
       include.genderPrices = true;
       include.areaPrices = true;
       include.addons = true;
       include.packageItems = true;
-      include.packageOptions = {
-        include: {
-          items: true,
-        },
-      };
     }
 
     // 執行查詢
@@ -122,22 +113,12 @@ export async function GET(request: Request) {
     // 轉換結果為前端友好格式
     const formattedServices = services.map((service) => {
       // 提取按摩師信息
-      const masseurs = service.masseurs.map((ms) => {
-        // 檢查 masseur 屬性是否存在
-        if (ms.masseur) {
-          return {
-            id: ms.masseur.id,
-            name: ms.masseur.name,
-            avatar: ms.masseur.avatar,
-          };
-        } else {
-          // 如果沒有 masseur 屬性，假設是直接關聯的 masseur 對象
-          return {
-            id: ms.id,
-            name: ms.name,
-            avatar: ms.image || null, // masseur 表中使用 image 而不是 avatar
-          };
-        }
+      const masseurs = service.masseurs.map((masseur) => {
+        return {
+          id: masseur.id,
+          name: masseur.name,
+          avatar: masseur.image || null,
+        };
       });
 
       // 返回格式化服務對象
@@ -220,15 +201,15 @@ export async function POST(request: Request) {
 
     // 檢查限時優惠邏輯
     if (data.isLimitedTime) {
-      if (!data.limitedTimeStart || !data.limitedTimeEnd) {
+      if (!data.limitedStartDate || !data.limitedEndDate) {
         return NextResponse.json(
           { error: "限時優惠必須提供開始和結束時間" },
           { status: 400 }
         );
       }
       
-      const startDate = new Date(data.limitedTimeStart);
-      const endDate = new Date(data.limitedTimeEnd);
+      const startDate = new Date(data.limitedStartDate);
+      const endDate = new Date(data.limitedEndDate);
       
       if (endDate < startDate) {
         return NextResponse.json(
@@ -270,8 +251,8 @@ export async function POST(request: Request) {
           duration: parseInt(data.duration),
           price: parseFloat(data.price),
           isLimitedTime: data.isLimitedTime || false,
-          limitedTimeStart: data.limitedTimeStart ? new Date(data.limitedTimeStart) : null,
-          limitedTimeEnd: data.limitedTimeEnd ? new Date(data.limitedTimeEnd) : null,
+          limitedStartDate: data.limitedStartDate ? new Date(data.limitedStartDate) : null,
+          limitedEndDate: data.limitedEndDate ? new Date(data.limitedEndDate) : null,
           limitedSpecialPrice: data.limitedSpecialPrice,
           limitedDiscountPercent: data.limitedDiscountPercent,
           limitedNote: data.limitedNote,
@@ -279,7 +260,7 @@ export async function POST(request: Request) {
           flashSaleStart: data.flashSaleStart ? new Date(data.flashSaleStart) : null,
           flashSaleEnd: data.flashSaleEnd ? new Date(data.flashSaleEnd) : null,
           flashSaleNote: data.flashSaleNote,
-          active: data.active !== undefined ? data.active : true,
+          isActive: data.isActive !== undefined ? data.isActive : true,
         },
       });
 
@@ -495,15 +476,15 @@ export async function PUT(request: Request) {
 
     // 檢查限時優惠邏輯
     if (data.isLimitedTime) {
-      if (!data.limitedTimeStart || !data.limitedTimeEnd) {
+      if (!data.limitedStartDate || !data.limitedEndDate) {
         return NextResponse.json(
           { error: "限時優惠必須提供開始和結束時間" },
           { status: 400 }
         );
       }
       
-      const startDate = new Date(data.limitedTimeStart);
-      const endDate = new Date(data.limitedTimeEnd);
+      const startDate = new Date(data.limitedStartDate);
+      const endDate = new Date(data.limitedEndDate);
       
       if (endDate < startDate) {
         return NextResponse.json(
@@ -546,8 +527,8 @@ export async function PUT(request: Request) {
           duration: parseInt(data.duration),
           price: parseFloat(data.price),
           isLimitedTime: data.isLimitedTime || false,
-          limitedTimeStart: data.limitedTimeStart ? new Date(data.limitedTimeStart) : null,
-          limitedTimeEnd: data.limitedTimeEnd ? new Date(data.limitedTimeEnd) : null,
+          limitedStartDate: data.limitedStartDate ? new Date(data.limitedStartDate) : null,
+          limitedEndDate: data.limitedEndDate ? new Date(data.limitedEndDate) : null,
           limitedSpecialPrice: data.limitedSpecialPrice,
           limitedDiscountPercent: data.limitedDiscountPercent,
           limitedNote: data.limitedNote,
@@ -555,7 +536,7 @@ export async function PUT(request: Request) {
           flashSaleStart: data.flashSaleStart ? new Date(data.flashSaleStart) : null,
           flashSaleEnd: data.flashSaleEnd ? new Date(data.flashSaleEnd) : null,
           flashSaleNote: data.flashSaleNote,
-          active: data.active !== undefined ? data.active : true,
+          isActive: data.isActive !== undefined ? data.isActive : true,
         },
       });
 
