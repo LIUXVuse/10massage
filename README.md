@@ -1,10 +1,12 @@
-# 伊林SPA預約系統
+# 伊林SPA按摩預約系統
 
 ![License](https://img.shields.io/badge/license-MIT-blue.svg)
-![Version](https://img.shields.io/badge/version-2.0.0-green.svg)
-![Last Updated](https://img.shields.io/badge/last%20updated-2025--03--02-orange.svg)
+![Version](https://img.shields.io/badge/version-2.0.2-green.svg)
+![Last Updated](https://img.shields.io/badge/last%20updated-2025--03--06-orange.svg)
 
 伊林SPA預約系統是一個專為SPA和按摩服務設計的全功能預約管理平台。本系統協助店家管理按摩師資源、服務項目和客戶預約，提供簡潔直觀的用戶界面，優化預約流程並提升客戶體驗。
+
+> 此版本已從特定Git提交(db4b7d8e388e20d7c4b5171bd377f1eb97a72077)恢復。上次更新時間：`2025-03-06`
 
 ## 📋 目錄
 
