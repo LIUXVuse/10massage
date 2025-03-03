@@ -213,7 +213,7 @@ export async function POST(request: Request) {
       
       if (endDate < startDate) {
         return NextResponse.json(
-          { error: "限時優惠結束時間必須晚於開始時間" },
+          { error: "結束時間必須晚於開始時間" },
           { status: 400 }
         );
       }
@@ -257,8 +257,6 @@ export async function POST(request: Request) {
           limitedDiscountPercent: data.limitedDiscountPercent,
           limitedNote: data.limitedNote,
           isFlashSale: data.isFlashSale || false,
-          flashSaleStart: data.flashSaleStart ? new Date(data.flashSaleStart) : null,
-          flashSaleEnd: data.flashSaleEnd ? new Date(data.flashSaleEnd) : null,
           flashSaleNote: data.flashSaleNote,
           isActive: data.isActive !== undefined ? data.isActive : true,
         },
@@ -533,8 +531,6 @@ export async function PUT(request: Request) {
           limitedDiscountPercent: data.limitedDiscountPercent,
           limitedNote: data.limitedNote,
           isFlashSale: data.isFlashSale || false,
-          flashSaleStart: data.flashSaleStart ? new Date(data.flashSaleStart) : null,
-          flashSaleEnd: data.flashSaleEnd ? new Date(data.flashSaleEnd) : null,
           flashSaleNote: data.flashSaleNote,
           isActive: data.isActive !== undefined ? data.isActive : true,
         },
