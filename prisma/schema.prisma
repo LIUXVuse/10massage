@@ -1,11 +1,11 @@
-datasource db {
-  provider = "postgresql"
-  url      = env("NEON_POSTGRES_PRISMA_URL")
-}
-
 generator client {
   provider        = "prisma-client-js"
   previewFeatures = []
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("NEON_POSTGRES_PRISMA_URL")
 }
 
 model User {
@@ -22,158 +22,151 @@ model User {
 }
 
 model Masseur {
-  id          String     @id @default(cuid())
+  id          String    @id @default(cuid())
   name        String
   image       String?
-  imageScale  Float?     @default(1.0)
-  imageX      Float?     @default(0.0)
-  imageY      Float?     @default(0.0)
+  imageScale  Float?    @default(1.0)
+  imageX      Float?    @default(0.0)
+  imageY      Float?    @default(0.0)
   cropX       Float?
   cropY       Float?
   cropWidth   Float?
   cropHeight  Float?
   description String?
-  experience  Int        @default(0)
-  isActive    Boolean    @default(true)
-  sortOrder   Int        @default(999)
-  services    Service[]
-  createdAt   DateTime   @default(now())
-  updatedAt   DateTime   @updatedAt
+  experience  Int       @default(0)
+  isActive    Boolean   @default(true)
+  sortOrder   Int       @default(999)
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @updatedAt
+  services    Service[] @relation("MasseurToService")
 }
 
 model Service {
-  id                    String               @id @default(cuid())
-  name                  String
-  description           String?
-  price                 Float                 // 基本價格
-  duration              Int                   // 基本時長
-  type                  String               @default("SINGLE")  // SINGLE, COMBO
-  category              String               @default("MASSAGE") // MASSAGE, CARE, TREATMENT
-  isActive              Boolean              @default(true)
-  isRecommend           Boolean              @default(false)
-  recommendOrder        Int                  @default(0)
-  isLimitedTime         Boolean              @default(false)     // 是否為期間限定
-  isFlashSale           Boolean              @default(false)     // 是否為快閃方案
-  limitedStartDate      DateTime?            // 限定開始日期
-  limitedEndDate        DateTime?            // 限定結束日期
-  limitedSpecialPrice   Float?               // 期間限定特價
-  limitedDiscountPercent Int?                // 期間限定折扣百分比
-  limitedNote           String?              // 期間限定備註
-  flashSaleNote         String?              // 快閃備註
-  masseurs              Masseur[]
-  durations             ServiceDuration[]
-  genderPrices          ServiceGenderPrice[] // 性別差異定價
-  areaPrices            ServiceAreaPrice[]   // 身體部位定價
-  addons                ServiceAddon[]       // 附加服務選項
-  packageItems          PackageItem[]        // 當此服務是套餐組合的一部分時使用
-  createdAt             DateTime             @default(now())
-  updatedAt             DateTime             @updatedAt
+  id                     String               @id @default(cuid())
+  name                   String
+  description            String?
+  price                  Float
+  duration               Int
+  type                   String               @default("SINGLE")
+  category               String               @default("MASSAGE")
+  isActive               Boolean              @default(true)
+  isRecommend            Boolean              @default(false)
+  createdAt              DateTime             @default(now())
+  updatedAt              DateTime             @updatedAt
+  flashSaleNote          String?
+  isFlashSale            Boolean              @default(false)
+  isLimitedTime          Boolean              @default(false)
+  limitedEndDate         DateTime?
+  limitedStartDate       DateTime?
+  limitedDiscountPercent Int?
+  limitedNote            String?
+  limitedSpecialPrice    Float?
+  recommendOrder         Int                  @default(0)
+  packageItems           PackageItem[]
+  addons                 ServiceAddon[]
+  areaPrices             ServiceAreaPrice[]
+  durations              ServiceDuration[]
+  genderPrices           ServiceGenderPrice[]
+  masseurs               Masseur[]            @relation("MasseurToService")
 }
 
 model ServiceDuration {
   id        String   @id @default(cuid())
-  duration  Int      // 時長（分鐘）
-  price     Float    // 此時長的價格
-  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  duration  Int
+  price     Float
   serviceId String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 }
 
-// 性別差異定價模型
 model ServiceGenderPrice {
   id        String   @id @default(cuid())
-  gender    Gender   // 性別枚舉
-  price     Float    // 針對特定性別的價格
-  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  gender    Gender
+  price     Float
   serviceId String
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@unique([serviceId, gender])
+}
+
+model ServiceAreaPrice {
+  id        String   @id @default(cuid())
+  areaName  String
+  price     Float
+  gender    Gender?
+  serviceId String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+
+  @@unique([serviceId, areaName, gender])
+}
+
+model ServiceAddon {
+  id          String   @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  isRequired  Boolean  @default(false)
+  serviceId   String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+}
+
+model ServicePackage {
+  id          String          @id @default(cuid())
+  name        String
+  description String?
+  price       Float
+  duration    Int
+  isActive    Boolean         @default(true)
+  createdAt   DateTime        @default(now())
+  updatedAt   DateTime        @updatedAt
+  items       PackageItem[]
+  options     PackageOption[]
+}
+
+model PackageItem {
+  id             String         @id @default(cuid())
+  serviceId      String
+  duration       Int
+  isRequired     Boolean        @default(true)
+  bodyPart       String?        // 部位
+  customDuration Int?           // 自定義時長
+  customPrice    Float?         // 自定義價格
+  packageId      String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  servicePackage ServicePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+  service        Service        @relation(fields: [serviceId], references: [id])
+}
+
+model PackageOption {
+  id             String         @id @default(cuid())
+  name           String
+  description    String?
+  maxSelections  Int            @default(1)
+  packageId      String
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+  items          OptionItem[]
+  servicePackage ServicePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
+}
+
+model OptionItem {
+  id              String        @id @default(cuid())
+  name            String
+  packageOptionId String
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+  packageOption   PackageOption @relation(fields: [packageOptionId], references: [id], onDelete: Cascade)
 }
 
 enum Gender {
   MALE
   FEMALE
 }
-
-// 身體部位定價模型
-model ServiceAreaPrice {
-  id        String    @id @default(cuid())
-  areaName  String    // 身體部位名稱
-  price     Float     // 該部位的服務價格
-  gender    Gender?   // 可選性別限制
-  service   Service   @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  serviceId String
-  createdAt DateTime  @default(now())
-  updatedAt DateTime  @updatedAt
-
-  @@unique([serviceId, areaName, gender])
-}
-
-// 附加服務選項模型
-model ServiceAddon {
-  id          String   @id @default(cuid())
-  name        String   // 附加選項名稱
-  description String?  // 選項描述
-  price       Float    // 選項價格
-  isRequired  Boolean  @default(false) // 是否為必選項
-  service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
-  serviceId   String
-  createdAt   DateTime @default(now())
-  updatedAt   DateTime @updatedAt
-}
-
-// 套餐組合服務模型
-model ServicePackage {
-  id          String        @id @default(cuid())
-  name        String        // 套餐名稱
-  description String?       // 套餐描述
-  price       Float         // 套餐總價
-  duration    Int           // 套餐總時長
-  items       PackageItem[] // 套餐包含的服務項目
-  options     PackageOption[] // 套餐可選擇項目
-  isActive    Boolean       @default(true)
-  createdAt   DateTime      @default(now())
-  updatedAt   DateTime      @updatedAt
-}
-
-// 套餐項目模型
-model PackageItem {
-  id            String         @id @default(cuid())
-  service       Service        @relation(fields: [serviceId], references: [id])
-  serviceId     String
-  duration      Int            // 服務時長
-  isRequired    Boolean        @default(true) // 是否為必選項
-  bodyPart      String?        // 部位
-  customDuration Int?          // 自定義時長
-  customPrice   Float?         // 自定義價格
-  servicePackage ServicePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
-  packageId     String
-  createdAt     DateTime       @default(now())
-  updatedAt     DateTime       @updatedAt
-}
-
-// 套餐選項模型
-model PackageOption {
-  id            String               @id @default(cuid())
-  name          String               // 選項名稱，如「免費六選二」
-  description   String?              // 選項描述
-  maxSelections Int                  @default(1) // 最多可選數量
-  items         OptionItem[]         // 選項項目
-  servicePackage ServicePackage      @relation(fields: [packageId], references: [id], onDelete: Cascade)
-  packageId     String
-  createdAt     DateTime             @default(now())
-  updatedAt     DateTime             @updatedAt
-}
-
-// 選項項目模型
-model OptionItem {
-  id              String        @id @default(cuid())
-  name            String        // 選項項目名稱
-  packageOption   PackageOption @relation(fields: [packageOptionId], references: [id], onDelete: Cascade)
-  packageOptionId String
-  createdAt       DateTime      @default(now())
-  updatedAt       DateTime      @updatedAt
-} 

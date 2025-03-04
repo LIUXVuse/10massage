@@ -349,11 +349,13 @@ export async function POST(request: Request) {
           data.packageItems.map((item: any) =>
             tx.packageItem.create({
               data: {
-                serviceId: service.id,
-                includedServiceId: item.serviceId,
-                serviceName: item.serviceName,
+                serviceId: item.serviceId,
                 duration: parseInt(item.duration),
                 isRequired: item.isRequired || true,
+                bodyPart: item.bodyPart || null,
+                customDuration: item.customDuration ? parseInt(item.customDuration) : null,
+                customPrice: item.customPrice ? parseFloat(item.customPrice) : null,
+                packageId: service.id
               },
             })
           )
@@ -499,6 +501,35 @@ export async function PUT(request: Request) {
         });
         
         console.log('按摩師關聯已更新');
+      }
+
+      // 第四步：處理套餐項目（如果有）
+      if (data.packageItems && data.packageItems.length > 0) {
+        // 先刪除原有的套餐項目
+        await prisma.packageItem.deleteMany({
+          where: { 
+            packageId: data.id
+          }
+        });
+        
+        console.log('舊套餐項目已刪除');
+        
+        // 添加新的套餐項目
+        for (const item of data.packageItems) {
+          await prisma.packageItem.create({
+            data: {
+              serviceId: item.serviceId,
+              duration: parseInt(item.duration),
+              isRequired: item.isRequired || true,
+              bodyPart: item.bodyPart || null,
+              customDuration: item.customDuration ? parseInt(item.customDuration) : null,
+              customPrice: item.customPrice ? parseFloat(item.customPrice) : null,
+              packageId: data.id
+            }
+          });
+        }
+        
+        console.log('新套餐項目已添加');
       }
 
       return NextResponse.json({
