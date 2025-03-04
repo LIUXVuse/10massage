@@ -17,6 +17,9 @@ export interface PackageItem {
   serviceName: string;
   duration: number;
   isRequired: boolean;
+  bodyPart?: string;
+  customDuration?: number;
+  customPrice?: number;
 }
 
 // 套餐選項項目類型
@@ -300,6 +303,42 @@ export function ServicePackageComponent({
                     id={`required-item-${index}`}
                   />
                   <Label htmlFor={`required-item-${index}`}>必選項</Label>
+                </div>
+
+                <div className="border-t pt-4 mt-4">
+                  <p className="text-sm text-gray-500 mb-3">選填項目 (根據需要填寫)</p>
+                  
+                  <div className="mb-3">
+                    <Label>部位</Label>
+                    <Input
+                      value={item.bodyPart || ""}
+                      onChange={(e) => updatePackageItem(index, "bodyPart", e.target.value)}
+                      placeholder="例如：背部、手臂"
+                      className="mb-2"
+                    />
+                  </div>
+
+                  <div className="mb-3">
+                    <Label>自定義時長 (分鐘)</Label>
+                    <Input
+                      type="number"
+                      value={item.customDuration || ""}
+                      onChange={(e) => updatePackageItem(index, "customDuration", e.target.value ? Number(e.target.value) : undefined)}
+                      placeholder="如需自定義時長，請填寫"
+                      className="mb-2"
+                    />
+                  </div>
+
+                  <div>
+                    <Label>自定義價格 (NT$)</Label>
+                    <Input
+                      type="number"
+                      value={item.customPrice || ""}
+                      onChange={(e) => updatePackageItem(index, "customPrice", e.target.value ? Number(e.target.value) : undefined)}
+                      placeholder="如需自定義價格，請填寫"
+                      className="mb-2"
+                    />
+                  </div>
                 </div>
               </div>
             ))}

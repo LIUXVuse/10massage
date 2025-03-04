@@ -146,6 +146,9 @@ model PackageItem {
   serviceId     String
   duration      Int            // 服務時長
   isRequired    Boolean        @default(true) // 是否為必選項
+  bodyPart      String?        // 部位
+  customDuration Int?          // 自定義時長
+  customPrice   Float?         // 自定義價格
   servicePackage ServicePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
   packageId     String
   createdAt     DateTime       @default(now())

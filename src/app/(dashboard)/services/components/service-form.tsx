@@ -16,8 +16,10 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { X, Plus, Calendar as CalendarIcon } from "lucide-react";
 
+// 導入我們創建的組件
 import { DynamicIcon } from "@/components/icons";
-import { CategorySelect } from "@/components/category-select";
+import { CategorySelect } from "@/components/services/category-select";
+
 import { ServiceAreaPricing } from "@/components/services/service-area-pricing";
 import { ServiceGenderPricing } from "@/components/services/service-gender-pricing";
 import { ServiceAddonOptions } from "@/components/services/service-addon-options";
@@ -74,7 +76,11 @@ export type ServiceFormData = {
     serviceId: string;
     serviceName: string;
     duration: number;
+    price: number;
     isRequired: boolean;
+    bodyPart: string;
+    customDuration: number;
+    customPrice: number;
   }[];
   packageOptions?: {
     id?: string;
@@ -146,7 +152,11 @@ const formSchema = z.object({
       serviceId: z.string(),
       serviceName: z.string(),
       duration: z.number().min(1, { message: "時長必須大於0" }),
+      price: z.number().min(0, { message: "價格不能為負數" }),
       isRequired: z.boolean(),
+      bodyPart: z.string().optional(),
+      customDuration: z.number().optional(),
+      customPrice: z.number().optional()
     })
   ).optional(),
   packageOptions: z.array(
@@ -258,8 +268,10 @@ export function ServiceForm({
   const flashSaleStart = watch("flashSaleStart");
   const flashSaleEnd = watch("flashSaleEnd");
 
-  // 監控服務類型變更，重置相關欄位
+  // 處理服務類型變更，重置相關欄位
   useEffect(() => {
+    console.log("服務類型變更為:", serviceType);
+    
     if (serviceType === "standard") {
       setValue("genderPrices", []);
       setValue("areaPrices", []);
@@ -269,18 +281,24 @@ export function ServiceForm({
       setValue("areaPrices", []);
       setValue("packageItems", []);
       setValue("packageOptions", []);
-      if (!(watch("genderPrices")?.length)) {
+      
+      // 檢查性別價格是否為空，若為空則初始化
+      const currentGenderPrices = watch("genderPrices") || [];
+      if (currentGenderPrices.length === 0) {
         setValue("genderPrices", [
-          { gender: "male", price: 0, serviceName: "" },
-          { gender: "female", price: 0, serviceName: "" }
+          { gender: "MALE", price: 0, serviceName: "" },
+          { gender: "FEMALE", price: 0, serviceName: "" }
         ]);
       }
     } else if (serviceType === "areaPricing") {
       setValue("genderPrices", []);
       setValue("packageItems", []);
       setValue("packageOptions", []);
-      if (!(watch("areaPrices")?.length)) {
-        setValue("areaPrices", []);
+      
+      // 檢查區域價格是否為空，若為空則初始化
+      const currentAreaPrices = watch("areaPrices") || [];
+      if (currentAreaPrices.length === 0) {
+        setValue("areaPrices", [{ area: "", price: 0 }]);
       }
     } else if (serviceType === "package") {
       setValue("genderPrices", []);
@@ -296,6 +314,8 @@ export function ServiceForm({
 
   // 表單提交處理
   const onSaveService = (data: ServiceFormData) => {
+    console.log("提交服務數據:", data, "服務類型:", serviceType);
+    
     // 根據服務類型調整數據
     if (serviceType === "standard") {
       data.genderPrices = [];
@@ -306,23 +326,54 @@ export function ServiceForm({
       data.areaPrices = [];
       data.packageItems = [];
       data.packageOptions = [];
+      
+      // 驗證性別定價數據
+      if (!data.genderPrices?.length || !data.genderPrices.every(gp => gp.gender && gp.price !== undefined)) {
+        alert("性別定價服務至少需要設定一個性別價格，且必須包含性別和價格");
+        return;
+      }
     } else if (serviceType === "areaPricing") {
       data.genderPrices = [];
       data.packageItems = [];
       data.packageOptions = [];
+      
+      // 驗證區域定價數據
+      if (!data.areaPrices?.length || !data.areaPrices.every(ap => ap.area && ap.price !== undefined)) {
+        alert("區域定價服務至少需要設定一個區域價格，且必須包含區域名稱和價格");
+        return;
+      }
     } else if (serviceType === "package") {
       data.genderPrices = [];
       data.areaPrices = [];
+      
+      // 驗證套餐數據
+      if (!data.packageItems?.length) {
+        alert("套餐服務至少需要包含一個服務項目");
+        return;
+      }
+    }
+
+    // 檢查必填字段
+    if (!data.name) {
+      alert("請填寫服務名稱");
+      return;
+    }
+    
+    if (serviceType === "standard" && (!data.duration || data.price === undefined)) {
+      alert("標準服務必須提供時長和價格");
+      return;
     }
 
     // 檢查限時優惠邏輯
     if (data.isLimitedTime) {
       if (!data.limitedTimeStart || !data.limitedTimeEnd) {
         // 處理錯誤：限時優惠需要開始和結束時間
+        alert("限時優惠需要設定開始和結束時間");
         return;
       }
       if (data.limitedTimeEnd < data.limitedTimeStart) {
         // 處理錯誤：結束時間不能早於開始時間
+        alert("限時優惠結束時間不能早於開始時間");
         return;
       }
     } else {
@@ -338,10 +389,12 @@ export function ServiceForm({
     if (data.isFlashSale) {
       if (!data.flashSaleStart || !data.flashSaleEnd) {
         // 處理錯誤：閃購需要開始和結束時間
+        alert("限時閃購需要設定開始和結束時間");
         return;
       }
       if (data.flashSaleEnd < data.flashSaleStart) {
         // 處理錯誤：結束時間不能早於開始時間
+        alert("限時閃購結束時間不能早於開始時間");
         return;
       }
     } else {
@@ -570,8 +623,8 @@ export function ServiceForm({
           <CardContent className="px-0 pb-0">
             <ServiceGenderPricing 
               genderPrices={watch("genderPrices") || [
-                { gender: "male", price: 0, serviceName: "" },
-                { gender: "female", price: 0, serviceName: "" }
+                { gender: "MALE", price: 0, serviceName: "" },
+                { gender: "FEMALE", price: 0, serviceName: "" }
               ]}
               onChange={(genderPrices) => setValue("genderPrices", genderPrices)}
             />
@@ -588,7 +641,10 @@ export function ServiceForm({
           <CardContent className="px-0 pb-0">
             <ServiceAreaPricing 
               areaPrices={watch("areaPrices") || []}
-              onChange={(areaPrices) => setValue("areaPrices", areaPrices)}
+              onChange={(prices) => {
+                console.log("更新區域價格:", prices);
+                setValue("areaPrices", prices);
+              }}
             />
           </CardContent>
         </Card>
@@ -633,8 +689,13 @@ export function ServiceForm({
           </CardHeader>
           <CardContent className="px-0 pb-0">
             <ServiceAddonOptions 
-              addonOptions={watch("addons") || []}
-              onChange={(addons) => setValue("addons", addons)}
+              addonOptions={(watch("addons") || []).map(addon => ({
+                ...addon,
+                description: addon.description || null
+              }))}
+              onChange={(options) => {
+                setValue("addons", options);
+              }}
             />
           </CardContent>
         </Card>
@@ -865,6 +926,7 @@ export function ServiceForm({
       <Card className="border rounded-lg p-4">
         <CardHeader className="px-0 pt-0">
           <CardTitle className="text-lg font-semibold">可提供服務的按摩師</CardTitle>
+          <p className="text-sm text-gray-500">選擇哪些按摩師可以提供此服務</p>
         </CardHeader>
         <CardContent className="px-0 pb-0">
           <div className="space-y-4">
@@ -872,43 +934,47 @@ export function ServiceForm({
               <p className="text-sm text-gray-500">尚未添加按摩師資料</p>
             ) : (
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
-                {masseurs.map((masseur) => (
-                  <div
-                    key={masseur.id}
-                    className="flex items-center space-x-2 border rounded-lg p-2"
-                  >
-                    <input
-                      type="checkbox"
-                      id={`masseur-${masseur.id}`}
-                      value={masseur.id}
-                      className="h-4 w-4"
-                      checked={(watch("masseursIds") || []).includes(masseur.id)}
-                      onChange={(e) => {
-                        const checked = e.target.checked;
-                        const currentMasseurs = watch("masseursIds") || [];
-                        
-                        if (checked) {
-                          setValue("masseursIds", [...currentMasseurs, masseur.id]);
-                        } else {
-                          setValue(
-                            "masseursIds",
-                            currentMasseurs.filter((id) => id !== masseur.id)
-                          );
-                        }
-                      }}
-                    />
-                    <Label htmlFor={`masseur-${masseur.id}`} className="cursor-pointer flex items-center">
-                      {masseur.avatar && (
-                        <img
-                          src={masseur.avatar}
-                          alt={masseur.name}
-                          className="w-8 h-8 rounded-full mr-2 object-cover"
-                        />
-                      )}
-                      <span>{masseur.name}</span>
-                    </Label>
-                  </div>
-                ))}
+                {masseurs.map((masseur) => {
+                  // 獲取當前選中的按摩師列表
+                  const currentMasseurs = watch("masseursIds") || [];
+                  const isChecked = currentMasseurs.includes(masseur.id);
+                  
+                  return (
+                    <div
+                      key={masseur.id}
+                      className={`flex items-center space-x-2 border rounded-lg p-2 hover:bg-gray-50 transition-colors ${isChecked ? 'bg-blue-50 border-blue-200' : ''}`}
+                    >
+                      <input
+                        type="checkbox"
+                        id={`masseur-${masseur.id}`}
+                        value={masseur.id}
+                        className="h-4 w-4"
+                        checked={isChecked}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          
+                          if (checked) {
+                            const newMasseursIds = [...currentMasseurs, masseur.id];
+                            setValue("masseursIds", newMasseursIds);
+                          } else {
+                            const newMasseursIds = currentMasseurs.filter((id) => id !== masseur.id);
+                            setValue("masseursIds", newMasseursIds);
+                          }
+                        }}
+                      />
+                      <Label htmlFor={`masseur-${masseur.id}`} className="flex items-center cursor-pointer">
+                        {masseur.avatar && (
+                          <img
+                            src={masseur.avatar}
+                            alt={masseur.name}
+                            className="w-8 h-8 rounded-full mr-2 object-cover"
+                          />
+                        )}
+                        <span>{masseur.name}</span>
+                      </Label>
+                    </div>
+                  );
+                })}
               </div>
             )}
           </div>
