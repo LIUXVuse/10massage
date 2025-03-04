@@ -281,11 +281,13 @@ export async function POST(request: Request) {
       if (data.masseursIds && data.masseursIds.length > 0) {
         await Promise.all(
           data.masseursIds.map((masseursId: string) =>
-            tx.masseurService.create({
+            tx.service.update({
+              where: { id: service.id },
               data: {
-                serviceId: service.id,
-                masseurId: masseursId,
-              },
+                masseurs: {
+                  connect: [{ id: masseursId }]
+                }
+              }
             })
           )
         );
@@ -375,11 +377,13 @@ export async function POST(request: Request) {
             if (option.items?.length > 0) {
               await Promise.all(
                 option.items.map((item: any) =>
-                  tx.packageOptionItem.create({
+                  tx.optionItem.create({
                     data: {
-                      optionId: packageOption.id,
                       name: item.name,
-                    },
+                      packageOption: {
+                        connect: { id: packageOption.id }
+                      }
+                    }
                   })
                 )
               );
