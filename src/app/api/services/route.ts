@@ -83,6 +83,7 @@ export async function GET(request: Request) {
     const include: any = {
       durations: true,
       masseurs: true,
+      customOptions: true,
     };
     
     // 如果需要詳細資訊，則添加額外的關聯
@@ -113,20 +114,29 @@ export async function GET(request: Request) {
     // 轉換結果為前端友好格式
     const formattedServices = services.map((service) => {
       // 提取按摩師信息
-      const masseurs = service.masseurs.map((masseur) => {
-        return {
-          id: masseur.id,
-          name: masseur.name,
-          avatar: masseur.image || null,
-        };
-      });
+      const masseurs = service.masseurs.map((masseur) => ({
+        id: masseur.id,
+        name: masseur.name,
+        avatar: masseur.image || null,
+      }));
+
+      // 格式化自定義選項
+      const customFields = service.customOptions?.map((option) => ({
+        id: option.id,
+        bodyPart: option.bodyPart || null,
+        customDuration: option.customDuration || null,
+        customPrice: option.customPrice || null,
+      })) || [];
 
       // 返回格式化服務對象
       return {
         ...service,
         masseurs,
+        customFields,
         // 移除原始按摩師關聯數據
         masseursRelations: undefined,
+        // 移除原始自定義選項關聯數據
+        customOptions: undefined,
       };
     });
 
@@ -158,87 +168,6 @@ export async function POST(request: Request) {
       );
     }
 
-    // 檢查服務類型並進行相應的驗證
-    let serviceType = "standard";
-    
-    // 檢查是否為性別定價服務
-    if (data.genderPrices?.length > 0) {
-      serviceType = "genderPricing";
-      // 驗證性別定價數據
-      if (!data.genderPrices.every((gp: any) => gp.gender && gp.price !== undefined)) {
-        return NextResponse.json(
-          { error: "性別定價服務必須提供性別和價格" },
-          { status: 400 }
-        );
-      }
-    }
-    
-    // 檢查是否為區域定價服務
-    if (data.areaPrices?.length > 0) {
-      serviceType = "areaPricing";
-      // 驗證區域定價數據
-      if (!data.areaPrices.every((ap: any) => ap.area && ap.price !== undefined)) {
-        return NextResponse.json(
-          { error: "區域定價服務必須提供區域名稱和價格" },
-          { status: 400 }
-        );
-      }
-    }
-    
-    // 檢查是否為套餐服務
-    if (data.packageItems?.length > 0) {
-      serviceType = "package";
-      // 驗證套餐數據
-      if (!data.packageItems.every((item: any) => 
-        item.serviceId && item.serviceName && item.duration)
-      ) {
-        return NextResponse.json(
-          { error: "套餐服務必須提供服務ID、名稱和時長" },
-          { status: 400 }
-        );
-      }
-    }
-
-    // 檢查限時優惠邏輯
-    if (data.isLimitedTime) {
-      if (!data.limitedStartDate || !data.limitedEndDate) {
-        return NextResponse.json(
-          { error: "限時優惠必須提供開始和結束時間" },
-          { status: 400 }
-        );
-      }
-      
-      const startDate = new Date(data.limitedStartDate);
-      const endDate = new Date(data.limitedEndDate);
-      
-      if (endDate < startDate) {
-        return NextResponse.json(
-          { error: "結束時間必須晚於開始時間" },
-          { status: 400 }
-        );
-      }
-    }
-
-    // 檢查閃購邏輯
-    if (data.isFlashSale) {
-      if (!data.flashSaleStart || !data.flashSaleEnd) {
-        return NextResponse.json(
-          { error: "閃購必須提供開始和結束時間" },
-          { status: 400 }
-        );
-      }
-      
-      const startDate = new Date(data.flashSaleStart);
-      const endDate = new Date(data.flashSaleEnd);
-      
-      if (endDate < startDate) {
-        return NextResponse.json(
-          { error: "閃購結束時間必須晚於開始時間" },
-          { status: 400 }
-        );
-      }
-    }
-
     // 處理服務創建
     const result = await prisma.$transaction(async (tx) => {
       // 創建基本服務
@@ -261,6 +190,22 @@ export async function POST(request: Request) {
           isActive: data.isActive !== undefined ? data.isActive : true,
         },
       });
+
+      // 處理自定義選項
+      if (data.customFields && data.customFields.length > 0) {
+        await Promise.all(
+          data.customFields.map((field: any) =>
+            tx.serviceCustomOption.create({
+              data: {
+                serviceId: service.id,
+                bodyPart: field.bodyPart || null,
+                customDuration: field.customDuration ? parseInt(field.customDuration) : null,
+                customPrice: field.customPrice ? parseFloat(field.customPrice) : null,
+              },
+            })
+          )
+        );
+      }
 
       // 處理多時長選項
       if (data.durations && data.durations.length > 0) {
@@ -294,7 +239,7 @@ export async function POST(request: Request) {
       }
       
       // 處理性別定價
-      if (serviceType === "genderPricing" && data.genderPrices?.length > 0) {
+      if (data.genderPrices?.length > 0) {
         await Promise.all(
           data.genderPrices.map((genderPrice: any) =>
             tx.serviceGenderPrice.create({
@@ -310,7 +255,7 @@ export async function POST(request: Request) {
       }
       
       // 處理區域定價
-      if (serviceType === "areaPricing" && data.areaPrices?.length > 0) {
+      if (data.areaPrices?.length > 0) {
         await Promise.all(
           data.areaPrices.map((areaPrice: any) =>
             tx.serviceAreaPrice.create({
@@ -344,7 +289,7 @@ export async function POST(request: Request) {
       }
       
       // 處理套餐項目
-      if (serviceType === "package" && data.packageItems?.length > 0) {
+      if (data.packageItems?.length > 0) {
         await Promise.all(
           data.packageItems.map((item: any) =>
             tx.packageItem.create({
@@ -363,7 +308,7 @@ export async function POST(request: Request) {
       }
       
       // 處理套餐選項
-      if (serviceType === "package" && data.packageOptions?.length > 0) {
+      if (data.packageOptions?.length > 0) {
         await Promise.all(
           data.packageOptions.map(async (option: any) => {
             const packageOption = await tx.packageOption.create({
@@ -425,115 +370,130 @@ export async function PUT(request: Request) {
       );
     }
 
-    // 檢查服務是否存在
-    const existingService = await prisma.service.findUnique({
-      where: { id: data.id },
-    });
-
-    if (!existingService) {
-      return NextResponse.json(
-        { error: "找不到指定服務" },
-        { status: 404 }
-      );
-    }
-
     console.log('開始更新服務:', data.id, data.name);
 
     try {
-      // 第一步：更新服務基本信息
-      const updatedService = await prisma.service.update({
-        where: { id: data.id },
-        data: {
-          name: data.name,
-          description: data.description,
-          category: data.category,
-          duration: parseInt(data.duration),
-          price: parseFloat(data.price),
-          isLimitedTime: data.isLimitedTime || false,
-          limitedStartDate: data.limitedStartDate ? new Date(data.limitedStartDate) : null,
-          limitedEndDate: data.limitedEndDate ? new Date(data.limitedEndDate) : null,
-          limitedSpecialPrice: data.limitedSpecialPrice,
-          limitedDiscountPercent: data.limitedDiscountPercent,
-          limitedNote: data.limitedNote,
-          isFlashSale: data.isFlashSale || false,
-          flashSaleNote: data.flashSaleNote,
-          isActive: data.isActive !== undefined ? data.isActive : true,
-        },
-      });
-      
-      console.log('基本信息更新成功');
-
-      // 第二步：更新多時長選項（先刪除舊的，再添加新的）
-      if (data.durations && data.durations.length > 0) {
-        // 刪除原有的時長選項
-        await prisma.serviceDuration.deleteMany({
-          where: { serviceId: data.id },
-        });
-        
-        console.log('舊時長選項已刪除');
-        
-        // 添加新的時長選項
-        for (const duration of data.durations) {
-          await prisma.serviceDuration.create({
-            data: {
-              serviceId: data.id,
-              duration: parseInt(duration.duration),
-              price: parseFloat(duration.price),
-            },
-          });
-        }
-        
-        console.log('新時長選項已添加');
-      }
-
-      // 第三步：更新按摩師關聯
-      if (data.masseursIds && data.masseursIds.length > 0) {
-        // 使用直接更新關聯的方式
-        await prisma.service.update({
+      // 使用事務處理所有更新操作
+      const result = await prisma.$transaction(async (tx) => {
+        // 更新服務基本信息
+        const updatedService = await tx.service.update({
           where: { id: data.id },
           data: {
-            masseurs: {
-              set: data.masseursIds.map((id: string) => ({
-                id
-              }))
-            }
-          }
+            name: data.name,
+            description: data.description,
+            category: data.category,
+            duration: parseInt(data.duration),
+            price: parseFloat(data.price),
+            isLimitedTime: data.isLimitedTime || false,
+            limitedStartDate: data.limitedStartDate ? new Date(data.limitedStartDate) : null,
+            limitedEndDate: data.limitedEndDate ? new Date(data.limitedEndDate) : null,
+            limitedSpecialPrice: data.limitedSpecialPrice,
+            limitedDiscountPercent: data.limitedDiscountPercent,
+            limitedNote: data.limitedNote,
+            isFlashSale: data.isFlashSale || false,
+            flashSaleNote: data.flashSaleNote,
+            isActive: data.isActive !== undefined ? data.isActive : true,
+          },
         });
-        
-        console.log('按摩師關聯已更新');
-      }
 
-      // 第四步：處理套餐項目（如果有）
-      if (data.packageItems && data.packageItems.length > 0) {
-        // 先刪除原有的套餐項目
-        await prisma.packageItem.deleteMany({
-          where: { 
-            packageId: data.id
+        // 更新自定義選項
+        if (data.customFields) {
+          // 刪除現有的自定義選項
+          await tx.serviceCustomOption.deleteMany({
+            where: { serviceId: data.id },
+          });
+
+          // 創建新的自定義選項
+          if (data.customFields.length > 0) {
+            await Promise.all(
+              data.customFields.map((field: any) =>
+                tx.serviceCustomOption.create({
+                  data: {
+                    serviceId: data.id,
+                    bodyPart: field.bodyPart || null,
+                    customDuration: field.customDuration ? parseInt(field.customDuration) : null,
+                    customPrice: field.customPrice ? parseFloat(field.customPrice) : null,
+                  },
+                })
+              )
+            );
           }
-        });
-        
-        console.log('舊套餐項目已刪除');
-        
-        // 添加新的套餐項目
-        for (const item of data.packageItems) {
-          await prisma.packageItem.create({
+        }
+
+        // 處理多時長選項（先刪除舊的，再添加新的）
+        if (data.durations && data.durations.length > 0) {
+          // 刪除原有的時長選項
+          await prisma.serviceDuration.deleteMany({
+            where: { serviceId: data.id },
+          });
+          
+          console.log('舊時長選項已刪除');
+          
+          // 添加新的時長選項
+          for (const duration of data.durations) {
+            await prisma.serviceDuration.create({
+              data: {
+                serviceId: data.id,
+                duration: parseInt(duration.duration),
+                price: parseFloat(duration.price),
+              },
+            });
+          }
+          
+          console.log('新時長選項已添加');
+        }
+
+        // 第三步：更新按摩師關聯
+        if (data.masseursIds && data.masseursIds.length > 0) {
+          // 使用直接更新關聯的方式
+          await prisma.service.update({
+            where: { id: data.id },
             data: {
-              serviceId: item.serviceId,
-              duration: parseInt(item.duration),
-              isRequired: item.isRequired || true,
-              bodyPart: item.bodyPart || null,
-              customDuration: item.customDuration ? parseInt(item.customDuration) : null,
-              customPrice: item.customPrice ? parseFloat(item.customPrice) : null,
+              masseurs: {
+                set: data.masseursIds.map((id: string) => ({
+                  id
+                }))
+              }
+            }
+          });
+          
+          console.log('按摩師關聯已更新');
+        }
+
+        // 第四步：處理套餐項目（如果有）
+        if (data.packageItems && data.packageItems.length > 0) {
+          // 先刪除原有的套餐項目
+          await prisma.packageItem.deleteMany({
+            where: { 
               packageId: data.id
             }
           });
+          
+          console.log('舊套餐項目已刪除');
+          
+          // 添加新的套餐項目
+          for (const item of data.packageItems) {
+            await prisma.packageItem.create({
+              data: {
+                serviceId: item.serviceId,
+                duration: parseInt(item.duration),
+                isRequired: item.isRequired || true,
+                bodyPart: item.bodyPart || null,
+                customDuration: item.customDuration ? parseInt(item.customDuration) : null,
+                customPrice: item.customPrice ? parseFloat(item.customPrice) : null,
+                packageId: data.id
+              }
+            });
+          }
+          
+          console.log('新套餐項目已添加');
         }
-        
-        console.log('新套餐項目已添加');
-      }
+
+        return updatedService;
+      });
 
       return NextResponse.json({
-        id: updatedService.id,
+        id: result.id,
         message: "服務更新成功",
       });
     } catch (error) {
@@ -544,9 +504,9 @@ export async function PUT(request: Request) {
       );
     }
   } catch (error) {
-    console.error('處理更新服務請求時出錯:', error);
+    console.error('更新服務失敗:', error);
     return NextResponse.json(
-      { error: "更新服務失敗" },
+      { error: `更新服務失敗: ${error}` },
       { status: 500 }
     );
   }

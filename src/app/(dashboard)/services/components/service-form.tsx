@@ -24,6 +24,8 @@ import { ServiceAreaPricing } from "@/components/services/service-area-pricing";
 import { ServiceGenderPricing } from "@/components/services/service-gender-pricing";
 import { ServiceAddonOptions } from "@/components/services/service-addon-options";
 
+import { Gender, GenderPrice, AreaPrice, AddonOption, CustomOption } from "@/types/service";
+
 // 定義服務表單數據類型
 export type ServiceFormData = {
   id?: string;
@@ -50,32 +52,10 @@ export type ServiceFormData = {
     duration: number;
     price: number;
   }[];
-  genderPrices?: {
-    id?: string;
-    gender: string;
-    price: number;
-    serviceName?: string;
-  }[];
-  areaPrices?: {
-    id?: string;
-    area: string;
-    price: number;
-    gender?: string;
-    description?: string;
-  }[];
-  addons?: {
-    id?: string;
-    name: string;
-    description?: string;
-    price: number;
-    isRequired: boolean;
-  }[];
-  customFields?: {
-    id?: string;
-    bodyPart: string;
-    customDuration?: number;
-    customPrice?: number;
-  }[];
+  genderPrices?: GenderPrice[];
+  areaPrices?: AreaPrice[];
+  addons?: AddonOption[];
+  customOptions?: CustomOption[];
 };
 
 // 定義表單驗證模式
@@ -130,7 +110,7 @@ const formSchema = z.object({
       isRequired: z.boolean(),
     })
   ).optional(),
-  customFields: z.array(
+  customOptions: z.array(
     z.object({
       id: z.string().optional(),
       bodyPart: z.string().optional(),
@@ -188,7 +168,7 @@ export function ServiceForm({
       genderPrices: [],
       areaPrices: [],
       addons: [],
-      customFields: [],
+      customOptions: [],
     },
   });
 
@@ -201,8 +181,8 @@ export function ServiceForm({
   // 添加測試代碼
   useEffect(() => {
     console.log("當前服務類型:", serviceType);
-    console.log("自定義欄位:", customFields);
-  }, [serviceType, customFields]);
+    console.log("自定義欄位:", customOptions);
+  }, [serviceType, customOptions]);
 
   // 多時長價格管理
   const durations = watch("durations") || [];
@@ -227,27 +207,27 @@ export function ServiceForm({
     setValue("durations", newDurations);
   };
 
-  // 自定義欄位管理
-  const customFields = watch("customFields") || [];
+  // 自定義選項管理
+  const customOptions = watch("customOptions") || [];
   
-  // 添加自定義欄位
-  const addCustomField = () => {
-    const newCustomFields = [...customFields, { bodyPart: "", customDuration: undefined, customPrice: undefined }];
-    setValue("customFields", newCustomFields);
+  // 添加自定義選項
+  const addCustomOption = () => {
+    const newCustomOptions: CustomOption[] = [...customOptions, { bodyPart: "", customDuration: undefined, customPrice: undefined }];
+    setValue("customOptions", newCustomOptions);
   };
 
-  // 移除自定義欄位
-  const removeCustomField = (index: number) => {
-    const newCustomFields = [...customFields];
-    newCustomFields.splice(index, 1);
-    setValue("customFields", newCustomFields);
+  // 移除自定義選項
+  const removeCustomOption = (index: number) => {
+    const newCustomOptions = [...customOptions];
+    newCustomOptions.splice(index, 1);
+    setValue("customOptions", newCustomOptions);
   };
 
-  // 更新自定義欄位
-  const updateCustomField = (index: number, field: string, value: any) => {
-    const newCustomFields = [...customFields];
-    newCustomFields[index] = { ...newCustomFields[index], [field]: value };
-    setValue("customFields", newCustomFields);
+  // 更新自定義選項
+  const updateCustomOption = (index: number, field: keyof CustomOption, value: string | number | undefined) => {
+    const newCustomOptions = [...customOptions];
+    newCustomOptions[index] = { ...newCustomOptions[index], [field]: value };
+    setValue("customOptions", newCustomOptions);
   };
 
   // 限時優惠狀態
@@ -274,8 +254,8 @@ export function ServiceForm({
       const currentGenderPrices = watch("genderPrices") || [];
       if (currentGenderPrices.length === 0) {
         setValue("genderPrices", [
-          { gender: "MALE", price: 0, serviceName: "" },
-          { gender: "FEMALE", price: 0, serviceName: "" }
+          { gender: "MALE" as Gender, price: 0, serviceName: "" },
+          { gender: "FEMALE" as Gender, price: 0, serviceName: "" }
         ]);
       }
     } else if (serviceType === "areaPricing") {
@@ -566,7 +546,7 @@ export function ServiceForm({
             </CardContent>
           </Card>
 
-          {/* 自定義欄位卡片 */}
+          {/* 自定義選項卡片 */}
           <Card className="border rounded-lg p-4">
             <CardHeader className="px-0 pt-0">
               <CardTitle className="text-lg font-semibold">自定義選項</CardTitle>
@@ -580,27 +560,27 @@ export function ServiceForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={addCustomField}
+                    onClick={addCustomOption}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     添加選項
                   </Button>
                 </div>
 
-                {customFields.length === 0 && (
+                {customOptions.length === 0 && (
                   <p className="text-sm text-gray-500">
                     尚未添加自定義選項。點擊「添加選項」按鈕添加部位、時長和價格的自定義設定。
                   </p>
                 )}
 
-                {customFields.map((field, index) => (
+                {customOptions.map((option, index) => (
                   <div key={index} className="space-y-4 border rounded-lg p-4">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
                         <Label>部位 (選填)</Label>
                         <Input
-                          value={field.bodyPart || ""}
-                          onChange={(e) => updateCustomField(index, "bodyPart", e.target.value)}
+                          value={option.bodyPart || ""}
+                          onChange={(e) => updateCustomOption(index, "bodyPart", e.target.value)}
                           placeholder="例如：背部、手臂"
                           className="mb-2"
                         />
@@ -609,7 +589,7 @@ export function ServiceForm({
                         type="button"
                         variant="ghost"
                         size="sm"
-                        onClick={() => removeCustomField(index)}
+                        onClick={() => removeCustomOption(index)}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -620,8 +600,8 @@ export function ServiceForm({
                         <Label>自定義時長 (選填，分鐘)</Label>
                         <Input
                           type="number"
-                          value={field.customDuration || ""}
-                          onChange={(e) => updateCustomField(index, "customDuration", e.target.value ? Number(e.target.value) : undefined)}
+                          value={option.customDuration || ""}
+                          onChange={(e) => updateCustomOption(index, "customDuration", e.target.value ? Number(e.target.value) : undefined)}
                           placeholder="如需自定義時長，請填寫"
                           className="mb-2"
                         />
@@ -630,8 +610,8 @@ export function ServiceForm({
                         <Label>自定義價格 (選填，NT$)</Label>
                         <Input
                           type="number"
-                          value={field.customPrice || ""}
-                          onChange={(e) => updateCustomField(index, "customPrice", e.target.value ? Number(e.target.value) : undefined)}
+                          value={option.customPrice || ""}
+                          onChange={(e) => updateCustomOption(index, "customPrice", e.target.value ? Number(e.target.value) : undefined)}
                           placeholder="如需自定義價格，請填寫"
                           className="mb-2"
                         />
@@ -654,10 +634,10 @@ export function ServiceForm({
           <CardContent className="px-0 pb-0">
             <ServiceGenderPricing 
               genderPrices={watch("genderPrices") || [
-                { gender: "MALE", price: 0, serviceName: "" },
-                { gender: "FEMALE", price: 0, serviceName: "" }
+                { gender: "MALE" as Gender, price: 0, serviceName: "" },
+                { gender: "FEMALE" as Gender, price: 0, serviceName: "" }
               ]}
-              onChange={(genderPrices) => setValue("genderPrices", genderPrices)}
+              onChange={(genderPrices: GenderPrice[]) => setValue("genderPrices", genderPrices)}
             />
           </CardContent>
         </Card>
@@ -671,10 +651,17 @@ export function ServiceForm({
           </CardHeader>
           <CardContent className="px-0 pb-0">
             <ServiceAreaPricing 
-              areaPrices={watch("areaPrices") || []}
-              onChange={(prices) => {
+              areaPrices={watch("areaPrices")?.map(ap => ({
+                ...ap,
+                areaName: ap.area,
+                gender: ap.gender as Gender | null | undefined
+              })) || []}
+              onChange={(prices: AreaPrice[]) => {
                 console.log("更新區域價格:", prices);
-                setValue("areaPrices", prices);
+                setValue("areaPrices", prices.map(p => ({
+                  ...p,
+                  area: p.areaName
+                })));
               }}
             />
           </CardContent>
@@ -692,9 +679,9 @@ export function ServiceForm({
             <ServiceAddonOptions 
               addonOptions={(watch("addons") || []).map(addon => ({
                 ...addon,
-                description: addon.description || null
+                description: addon.description || undefined
               }))}
-              onChange={(options) => {
+              onChange={(options: AddonOption[]) => {
                 setValue("addons", options);
               }}
             />
