@@ -316,6 +316,7 @@ export function ServicePackageComponent({
                       placeholder="例如：背部、手臂"
                       className="mb-2"
                     />
+                    <p className="text-xs text-gray-500">選填：指定此服務項目的施作部位</p>
                   </div>
 
                   <div className="mb-3">
@@ -327,6 +328,7 @@ export function ServicePackageComponent({
                       placeholder="如需自定義時長，請填寫"
                       className="mb-2"
                     />
+                    <p className="text-xs text-gray-500">選填：若需要特別指定此項目的時長，請填寫</p>
                   </div>
 
                   <div className="mb-3">
@@ -338,6 +340,7 @@ export function ServicePackageComponent({
                       placeholder="如需自定義價格，請填寫"
                       className="mb-2"
                     />
+                    <p className="text-xs text-gray-500">選填：若需要特別指定此項目的價格，請填寫</p>
                   </div>
                 </div>
               </div>

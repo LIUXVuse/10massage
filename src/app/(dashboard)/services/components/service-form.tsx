@@ -78,9 +78,9 @@ export type ServiceFormData = {
     duration: number;
     price: number;
     isRequired: boolean;
-    bodyPart: string;
-    customDuration: number;
-    customPrice: number;
+    bodyPart?: string;
+    customDuration?: number;
+    customPrice?: number;
   }[];
   packageOptions?: {
     id?: string;
@@ -155,8 +155,8 @@ const formSchema = z.object({
       price: z.number().min(0, { message: "價格不能為負數" }),
       isRequired: z.boolean(),
       bodyPart: z.string().optional(),
-      customDuration: z.number().optional(),
-      customPrice: z.number().optional()
+      customDuration: z.number().min(1, { message: "自定義時長必須大於0" }).optional(),
+      customPrice: z.number().min(0, { message: "自定義價格不能為負數" }).optional()
     })
   ).optional(),
   packageOptions: z.array(
