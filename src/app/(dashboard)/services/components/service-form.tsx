@@ -16,10 +16,6 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { X, Plus, Calendar as CalendarIcon } from "lucide-react";
 
-// 導入我們創建的組件
-import { DynamicIcon } from "@/components/icons";
-import { CategorySelect } from "@/components/services/category-select";
-
 import { ServiceAreaPricing } from "@/components/services/service-area-pricing";
 import { ServiceGenderPricing } from "@/components/services/service-gender-pricing";
 import { ServiceAddonOptions } from "@/components/services/service-addon-options";
@@ -244,7 +240,7 @@ export function ServiceForm({
       // 檢查區域價格是否為空，若為空則初始化
       const currentAreaPrices = watch("areaPrices") || [];
       if (currentAreaPrices.length === 0) {
-        setValue("areaPrices", [{ area: "", price: 0 }]);
+        setValue("areaPrices", [{ area: "", areaName: "", price: 0 }]);
       }
     }
   }, [serviceType, setValue, watch]);
@@ -364,11 +360,19 @@ export function ServiceForm({
 
             <div>
               <Label htmlFor="category">服務分類</Label>
-              <CategorySelect
-                categories={categories}
+              <select
+                id="category"
                 value={watch("category") || ""}
-                onChange={(value) => setValue("category", value)}
-              />
+                onChange={(e) => setValue("category", e.target.value)}
+                className="w-full p-2 border rounded-md"
+              >
+                <option value="">請選擇分類</option>
+                {categories.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
             </div>
 
             <div className="flex items-center space-x-2">
@@ -543,7 +547,7 @@ export function ServiceForm({
                 variant="outline"
                 size="sm"
                 onClick={() => {
-                  const newCustomOptions: CustomOption[] = [...customOptions, { bodyPart: "", customDuration: undefined, customPrice: undefined }];
+                  const newCustomOptions = [...customOptions, { bodyPart: "", customDuration: undefined, customPrice: undefined }];
                   setValue("customOptions", newCustomOptions);
                 }}
               >
@@ -593,10 +597,14 @@ export function ServiceForm({
                     <Label>自定義時長 (選填，分鐘)</Label>
                     <Input
                       type="number"
+                      min="1"
                       value={option.customDuration || ""}
                       onChange={(e) => {
                         const newCustomOptions = [...customOptions];
-                        newCustomOptions[index] = { ...newCustomOptions[index], customDuration: e.target.value ? Number(e.target.value) : undefined };
+                        newCustomOptions[index] = { 
+                          ...newCustomOptions[index], 
+                          customDuration: e.target.value ? parseInt(e.target.value) : undefined 
+                        };
                         setValue("customOptions", newCustomOptions);
                       }}
                       placeholder="如需自定義時長，請填寫"
@@ -607,10 +615,14 @@ export function ServiceForm({
                     <Label>自定義價格 (選填，NT$)</Label>
                     <Input
                       type="number"
+                      min="0"
                       value={option.customPrice || ""}
                       onChange={(e) => {
                         const newCustomOptions = [...customOptions];
-                        newCustomOptions[index] = { ...newCustomOptions[index], customPrice: e.target.value ? Number(e.target.value) : undefined };
+                        newCustomOptions[index] = { 
+                          ...newCustomOptions[index], 
+                          customPrice: e.target.value ? parseInt(e.target.value) : undefined 
+                        };
                         setValue("customOptions", newCustomOptions);
                       }}
                       placeholder="如需自定義價格，請填寫"
@@ -651,15 +663,20 @@ export function ServiceForm({
           <CardContent className="px-0 pb-0">
             <ServiceAreaPricing 
               areaPrices={watch("areaPrices")?.map(ap => ({
-                ...ap,
-                areaName: ap.area,
+                id: ap.id,
+                area: ap.area || "",
+                areaName: ap.area || "",
+                price: ap.price,
                 gender: ap.gender as Gender | null | undefined
               })) || []}
-              onChange={(prices: AreaPrice[]) => {
+              onChange={(prices) => {
                 console.log("更新區域價格:", prices);
                 setValue("areaPrices", prices.map(p => ({
-                  ...p,
-                  area: p.areaName
+                  id: p.id,
+                  area: p.areaName || "",
+                  areaName: p.areaName || "",
+                  price: p.price,
+                  gender: p.gender
                 })));
               }}
             />
