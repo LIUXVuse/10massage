@@ -171,7 +171,7 @@ export function ServiceForm({
   // 服務類型狀態
   const [serviceType, setServiceType] = useState<string>(
     service?.areaPrices?.length ? "areaPricing" :
-    service?.genderPrices?.length ? "genderPricing" : "standard"
+    service?.genderPrices?.length ? "genderPricing" : "single"
   );
 
   // 多時長價格管理
@@ -220,7 +220,7 @@ export function ServiceForm({
   useEffect(() => {
     console.log("服務類型變更為:", serviceType);
     
-    if (serviceType === "standard") {
+    if (serviceType === "single") {
       setValue("genderPrices", []);
       setValue("areaPrices", []);
       // 確保 customOptions 不被清除
@@ -228,27 +228,10 @@ export function ServiceForm({
       if (currentCustomOptions.length === 0) {
         setValue("customOptions", []);
       }
-    } else if (serviceType === "genderPricing") {
+    } else if (serviceType === "package") {
+      setValue("genderPrices", []);
       setValue("areaPrices", []);
       setValue("customOptions", []); // 清除自定義選項
-      
-      // 檢查性別價格是否為空，若為空則初始化
-      const currentGenderPrices = watch("genderPrices") || [];
-      if (currentGenderPrices.length === 0) {
-        setValue("genderPrices", [
-          { gender: "MALE" as Gender, price: 0, serviceName: "" },
-          { gender: "FEMALE" as Gender, price: 0, serviceName: "" }
-        ]);
-      }
-    } else if (serviceType === "areaPricing") {
-      setValue("genderPrices", []);
-      setValue("customOptions", []); // 清除自定義選項
-      
-      // 檢查區域價格是否為空，若為空則初始化
-      const currentAreaPrices = watch("areaPrices") || [];
-      if (currentAreaPrices.length === 0) {
-        setValue("areaPrices", [{ area: "", areaName: "", price: 0 }]);
-      }
     }
   }, [serviceType, setValue, watch]);
 
@@ -257,7 +240,7 @@ export function ServiceForm({
     console.log("提交服務數據:", data, "服務類型:", serviceType);
     
     // 根據服務類型調整數據
-    if (serviceType === "standard") {
+    if (serviceType === "single") {
       data.genderPrices = [];
       data.areaPrices = [];
     } else if (serviceType === "genderPricing") {
@@ -284,8 +267,8 @@ export function ServiceForm({
       return;
     }
     
-    if (serviceType === "standard" && (!data.duration || data.price === undefined)) {
-      alert("標準服務必須提供時長和價格");
+    if (serviceType === "single" && (!data.duration || data.price === undefined)) {
+      alert("單項服務必須提供時長和價格");
       return;
     }
 
@@ -404,32 +387,22 @@ export function ServiceForm({
             <div className="grid grid-cols-2 gap-4">
               <Button
                 type="button"
-                variant={serviceType === "standard" ? "default" : "outline"}
-                onClick={() => setServiceType("standard")}
+                variant={serviceType === "single" ? "default" : "outline"}
+                onClick={() => setServiceType("single")}
                 className="w-full justify-start"
               >
-                <span className="mr-2">標準服務</span>
+                <span className="mr-2">單項服務</span>
                 <span className="text-xs opacity-70">(固定價格)</span>
               </Button>
               
               <Button
                 type="button"
-                variant={serviceType === "genderPricing" ? "default" : "outline"}
-                onClick={() => setServiceType("genderPricing")}
+                variant={serviceType === "package" ? "default" : "outline"}
+                onClick={() => setServiceType("package")}
                 className="w-full justify-start"
               >
-                <span className="mr-2">性別定價</span>
-                <span className="text-xs opacity-70">(男女不同價)</span>
-              </Button>
-              
-              <Button
-                type="button"
-                variant={serviceType === "areaPricing" ? "default" : "outline"}
-                onClick={() => setServiceType("areaPricing")}
-                className="w-full justify-start"
-              >
-                <span className="mr-2">區域定價</span>
-                <span className="text-xs opacity-70">(除毛/各部位不同價)</span>
+                <span className="mr-2">套餐服務</span>
+                <span className="text-xs opacity-70">(多項服務組合)</span>
               </Button>
             </div>
           </div>
@@ -437,7 +410,7 @@ export function ServiceForm({
       </Card>
       
       {/* 價格部分 - 根據服務類型顯示不同的價格編輯器 */}
-      {serviceType === "standard" && (
+      {serviceType === "single" && (
         <div className="space-y-6">
           <Card className="border rounded-lg p-4">
             <CardHeader className="px-0 pt-0">
@@ -692,7 +665,7 @@ export function ServiceForm({
       )}
       
       {/* 附加項目 - 針對標準服務和性別定價服務 */}
-      {(serviceType === "standard" || serviceType === "genderPricing") && (
+      {(serviceType === "single" || serviceType === "genderPricing") && (
         <Card className="border rounded-lg p-4">
           <CardHeader className="px-0 pt-0">
             <CardTitle className="text-lg font-semibold">附加選項</CardTitle>
