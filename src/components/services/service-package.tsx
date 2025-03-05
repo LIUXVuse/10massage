@@ -296,7 +296,7 @@ export function ServicePackageComponent({
                   />
                 </div>
 
-                <div className="flex items-center space-x-2">
+                <div className="flex items-center space-x-2 mb-4">
                   <Switch
                     checked={item.isRequired}
                     onCheckedChange={(checked) => updatePackageItem(index, "isRequired", checked)}
@@ -329,7 +329,7 @@ export function ServicePackageComponent({
                     />
                   </div>
 
-                  <div>
+                  <div className="mb-3">
                     <Label>自定義價格 (NT$)</Label>
                     <Input
                       type="number"
