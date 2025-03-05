@@ -461,103 +461,113 @@ export function ServiceForm({
       
       {/* 價格部分 - 根據服務類型顯示不同的價格編輯器 */}
       {serviceType === "standard" && (
-        <Card className="border rounded-lg p-4">
-          <CardHeader className="px-0 pt-0">
-            <CardTitle className="text-lg font-semibold">服務時長與價格</CardTitle>
-          </CardHeader>
-          <CardContent className="px-0 pb-0">
-            <div className="space-y-6">
-              {/* 基本時長與價格 */}
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <Label htmlFor="duration">時長 (分鐘)</Label>
-                  <Input
-                    id="duration"
-                    type="number"
-                    min="1"
-                    {...register("duration", { valueAsNumber: true })}
-                    className="mb-2"
-                  />
-                  {errors.duration && (
-                    <p className="text-sm text-red-500">{errors.duration.message}</p>
-                  )}
-                </div>
-                <div>
-                  <Label htmlFor="price">價格 (NT$)</Label>
-                  <Input
-                    id="price"
-                    type="number"
-                    min="0"
-                    {...register("price", { valueAsNumber: true })}
-                    className="mb-2"
-                  />
-                  {errors.price && (
-                    <p className="text-sm text-red-500">{errors.price.message}</p>
-                  )}
-                </div>
-              </div>
-
-              {/* 多時長選項 */}
-              <div className="space-y-4">
-                <div className="flex justify-between items-center">
-                  <Label>多時長選項 (選填)</Label>
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={addDuration}
-                  >
-                    <Plus className="h-4 w-4 mr-2" />
-                    添加時長
-                  </Button>
+        <>
+          <Card className="border rounded-lg p-4">
+            <CardHeader className="px-0 pt-0">
+              <CardTitle className="text-lg font-semibold">服務時長與價格</CardTitle>
+            </CardHeader>
+            <CardContent className="px-0 pb-0">
+              <div className="space-y-6">
+                {/* 基本時長與價格 */}
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <Label htmlFor="duration">時長 (分鐘)</Label>
+                    <Input
+                      id="duration"
+                      type="number"
+                      min="1"
+                      {...register("duration", { valueAsNumber: true })}
+                      className="mb-2"
+                    />
+                    {errors.duration && (
+                      <p className="text-sm text-red-500">{errors.duration.message}</p>
+                    )}
+                  </div>
+                  <div>
+                    <Label htmlFor="price">價格 (NT$)</Label>
+                    <Input
+                      id="price"
+                      type="number"
+                      min="0"
+                      {...register("price", { valueAsNumber: true })}
+                      className="mb-2"
+                    />
+                    {errors.price && (
+                      <p className="text-sm text-red-500">{errors.price.message}</p>
+                    )}
+                  </div>
                 </div>
 
-                {durations.length === 0 && (
-                  <p className="text-sm text-gray-500">
-                    尚未添加額外時長選項。點擊「添加時長」按鈕添加不同的時長與價格選擇。
-                  </p>
-                )}
-
-                {durations.map((item, index) => (
-                  <div key={index} className="flex items-start space-x-2">
-                    <div className="grid grid-cols-2 gap-4 flex-1">
-                      <div>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={item.duration}
-                          onChange={(e) =>
-                            updateDuration(index, "duration", Number(e.target.value))
-                          }
-                          placeholder="時長(分鐘)"
-                        />
-                      </div>
-                      <div>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={item.price}
-                          onChange={(e) =>
-                            updateDuration(index, "price", Number(e.target.value))
-                          }
-                          placeholder="價格(NT$)"
-                        />
-                      </div>
-                    </div>
+                {/* 多時長選項 */}
+                <div className="space-y-4">
+                  <div className="flex justify-between items-center">
+                    <Label>多時長選項 (選填)</Label>
                     <Button
                       type="button"
-                      variant="ghost"
+                      variant="outline"
                       size="sm"
-                      onClick={() => removeDuration(index)}
+                      onClick={addDuration}
                     >
-                      <X className="h-4 w-4" />
+                      <Plus className="h-4 w-4 mr-2" />
+                      添加時長
                     </Button>
                   </div>
-                ))}
-              </div>
 
-              {/* 自定義欄位 - 移到這裡，與多時長選項平級 */}
-              <div className="space-y-4 border-t pt-4">
+                  {durations.length === 0 && (
+                    <p className="text-sm text-gray-500">
+                      尚未添加額外時長選項。點擊「添加時長」按鈕添加不同的時長與價格選擇。
+                    </p>
+                  )}
+
+                  {durations.map((item, index) => (
+                    <div key={index} className="flex items-start space-x-2">
+                      <div className="grid grid-cols-2 gap-4 flex-1">
+                        <div>
+                          <Input
+                            type="number"
+                            min="1"
+                            value={item.duration}
+                            onChange={(e) =>
+                              updateDuration(index, "duration", Number(e.target.value))
+                            }
+                            placeholder="時長(分鐘)"
+                          />
+                        </div>
+                        <div>
+                          <Input
+                            type="number"
+                            min="0"
+                            value={item.price}
+                            onChange={(e) =>
+                              updateDuration(index, "price", Number(e.target.value))
+                            }
+                            placeholder="價格(NT$)"
+                          />
+                        </div>
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeDuration(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            </CardContent>
+          </Card>
+
+          {/* 自定義欄位卡片 - 新增在這裡 */}
+          <Card className="border rounded-lg p-4">
+            <CardHeader className="px-0 pt-0">
+              <CardTitle className="text-lg font-semibold">自定義選項</CardTitle>
+              <p className="text-sm text-gray-500">可以為服務添加特定部位、時長和價格的設定</p>
+            </CardHeader>
+            <CardContent className="px-0 pb-0">
+              <div className="space-y-4">
                 <div className="flex justify-between items-center">
                   <Label>自定義選項 (全部選填)</Label>
                   <Button
@@ -624,9 +634,9 @@ export function ServiceForm({
                   </div>
                 ))}
               </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </>
       )}
       
       {serviceType === "genderPricing" && (
