@@ -70,6 +70,12 @@ export type ServiceFormData = {
     price: number;
     isRequired: boolean;
   }[];
+  customFields?: {
+    id?: string;
+    bodyPart: string;
+    customDuration?: number;
+    customPrice?: number;
+  }[];
 };
 
 // 定義表單驗證模式
@@ -124,6 +130,14 @@ const formSchema = z.object({
       isRequired: z.boolean(),
     })
   ).optional(),
+  customFields: z.array(
+    z.object({
+      id: z.string().optional(),
+      bodyPart: z.string(),
+      customDuration: z.number().min(1, { message: "時長必須大於0" }).optional(),
+      customPrice: z.number().min(0, { message: "價格不能為負數" }).optional(),
+    })
+  ).optional(),
 });
 
 // 表單組件接口定義
@@ -174,6 +188,7 @@ export function ServiceForm({
       genderPrices: [],
       areaPrices: [],
       addons: [],
+      customFields: [],
     },
   });
 
@@ -204,6 +219,29 @@ export function ServiceForm({
     const newDurations = [...durations];
     newDurations[index][field] = value;
     setValue("durations", newDurations);
+  };
+
+  // 自定義欄位管理
+  const customFields = watch("customFields") || [];
+  
+  // 添加自定義欄位
+  const addCustomField = () => {
+    const newCustomFields = [...customFields, { bodyPart: "", customDuration: undefined, customPrice: undefined }];
+    setValue("customFields", newCustomFields);
+  };
+
+  // 移除自定義欄位
+  const removeCustomField = (index: number) => {
+    const newCustomFields = [...customFields];
+    newCustomFields.splice(index, 1);
+    setValue("customFields", newCustomFields);
+  };
+
+  // 更新自定義欄位
+  const updateCustomField = (index: number, field: string, value: any) => {
+    const newCustomFields = [...customFields];
+    newCustomFields[index] = { ...newCustomFields[index], [field]: value };
+    setValue("customFields", newCustomFields);
   };
 
   // 限時優惠狀態
@@ -514,6 +552,75 @@ export function ServiceForm({
                     >
                       <X className="h-4 w-4" />
                     </Button>
+                  </div>
+                ))}
+              </div>
+
+              {/* 自定義欄位 */}
+              <div className="space-y-4 border-t pt-4">
+                <div className="flex justify-between items-center">
+                  <Label>自定義選項 (選填)</Label>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={addCustomField}
+                  >
+                    <Plus className="h-4 w-4 mr-2" />
+                    添加選項
+                  </Button>
+                </div>
+
+                {customFields.length === 0 && (
+                  <p className="text-sm text-gray-500">
+                    尚未添加自定義選項。點擊「添加選項」按鈕添加部位、時長和價格的自定義設定。
+                  </p>
+                )}
+
+                {customFields.map((field, index) => (
+                  <div key={index} className="space-y-4 border rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <Label>部位</Label>
+                        <Input
+                          value={field.bodyPart}
+                          onChange={(e) => updateCustomField(index, "bodyPart", e.target.value)}
+                          placeholder="例如：背部、手臂"
+                          className="mb-2"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => removeCustomField(index)}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>自定義時長 (分鐘)</Label>
+                        <Input
+                          type="number"
+                          value={field.customDuration || ""}
+                          onChange={(e) => updateCustomField(index, "customDuration", e.target.value ? Number(e.target.value) : undefined)}
+                          placeholder="如需自定義時長，請填寫"
+                          className="mb-2"
+                        />
+                      </div>
+                      <div>
+                        <Label>自定義價格 (NT$)</Label>
+                        <Input
+                          type="number"
+                          value={field.customPrice || ""}
+                          onChange={(e) => updateCustomField(index, "customPrice", e.target.value ? Number(e.target.value) : undefined)}
+                          placeholder="如需自定義價格，請填寫"
+                          className="mb-2"
+                        />
+                      </div>
+                    </div>
                   </div>
                 ))}
               </div>
