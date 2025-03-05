@@ -198,6 +198,12 @@ export function ServiceForm({
     service?.genderPrices?.length ? "genderPricing" : "standard"
   );
 
+  // 添加測試代碼
+  useEffect(() => {
+    console.log("當前服務類型:", serviceType);
+    console.log("自定義欄位:", customFields);
+  }, [serviceType, customFields]);
+
   // 多時長價格管理
   const durations = watch("durations") || [];
   
@@ -462,6 +468,9 @@ export function ServiceForm({
       {/* 價格部分 - 根據服務類型顯示不同的價格編輯器 */}
       {serviceType === "standard" && (
         <>
+          {/* 添加測試代碼 */}
+          {console.log("渲染標準服務部分")}
+
           <Card className="border rounded-lg p-4">
             <CardHeader className="px-0 pt-0">
               <CardTitle className="text-lg font-semibold">服務時長與價格</CardTitle>
@@ -560,8 +569,9 @@ export function ServiceForm({
             </CardContent>
           </Card>
 
-          {/* 自定義欄位卡片 - 新增在這裡 */}
-          <Card className="border rounded-lg p-4">
+          {/* 自定義欄位卡片 */}
+          {console.log("準備渲染自定義欄位卡片")}
+          <Card className="border rounded-lg p-4 mt-6">
             <CardHeader className="px-0 pt-0">
               <CardTitle className="text-lg font-semibold">自定義選項</CardTitle>
               <p className="text-sm text-gray-500">可以為服務添加特定部位、時長和價格的設定</p>
@@ -574,7 +584,10 @@ export function ServiceForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={addCustomField}
+                    onClick={() => {
+                      console.log("點擊添加自定義欄位按鈕");
+                      addCustomField();
+                    }}
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     添加選項
