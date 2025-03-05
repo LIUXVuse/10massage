@@ -9,6 +9,7 @@ export interface GenderPrice {
 
 export interface AreaPrice {
   id?: string;
+  area: string;
   areaName: string;
   price: number;
   gender?: Gender | null;
