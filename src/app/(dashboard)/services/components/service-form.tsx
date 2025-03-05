@@ -529,112 +529,112 @@ export function ServiceForm({
               </div>
             </CardContent>
           </Card>
-        </div>
-      )}
 
-      {/* 自定義選項卡片 */}
-      <Card className="border rounded-lg p-4">
-        <CardHeader className="px-0 pt-0">
-          <CardTitle className="text-lg font-semibold">自定義選項</CardTitle>
-          <p className="text-sm text-gray-500">可以為服務添加特定部位、時長和價格的設定</p>
-        </CardHeader>
-        <CardContent className="px-0 pb-0">
-          <div className="space-y-4">
-            <div className="flex justify-between items-center">
-              <Label>自定義選項 (全部選填)</Label>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                onClick={() => {
-                  const newCustomOptions = [...customOptions, { bodyPart: "", customDuration: undefined, customPrice: undefined }];
-                  setValue("customOptions", newCustomOptions);
-                }}
-              >
-                <Plus className="h-4 w-4 mr-2" />
-                添加選項
-              </Button>
-            </div>
-
-            {customOptions.length === 0 && (
-              <p className="text-sm text-gray-500">
-                尚未添加自定義選項。點擊「添加選項」按鈕添加部位、時長和價格的自定義設定。
-              </p>
-            )}
-
-            {customOptions.map((option, index) => (
-              <div key={index} className="space-y-4 border rounded-lg p-4">
-                <div className="flex justify-between items-start">
-                  <div className="flex-1">
-                    <Label>部位 (選填)</Label>
-                    <Input
-                      value={option.bodyPart || ""}
-                      onChange={(e) => {
-                        const newCustomOptions = [...customOptions];
-                        newCustomOptions[index] = { ...newCustomOptions[index], bodyPart: e.target.value };
-                        setValue("customOptions", newCustomOptions);
-                      }}
-                      placeholder="例如：背部、手臂"
-                      className="mb-2"
-                    />
-                  </div>
+          {/* 自定義選項卡片 */}
+          <Card className="border rounded-lg p-4">
+            <CardHeader className="px-0 pt-0">
+              <CardTitle className="text-lg font-semibold">自定義選項</CardTitle>
+              <p className="text-sm text-gray-500">可以為服務添加特定部位、時長和價格的設定</p>
+            </CardHeader>
+            <CardContent className="px-0 pb-0">
+              <div className="space-y-4">
+                <div className="flex justify-between items-center">
+                  <Label>自定義選項 (全部選填)</Label>
                   <Button
                     type="button"
-                    variant="ghost"
+                    variant="outline"
                     size="sm"
                     onClick={() => {
-                      const newCustomOptions = [...customOptions];
-                      newCustomOptions.splice(index, 1);
+                      const newCustomOptions = [...customOptions, { bodyPart: "", customDuration: undefined, customPrice: undefined }];
                       setValue("customOptions", newCustomOptions);
                     }}
                   >
-                    <X className="h-4 w-4" />
+                    <Plus className="h-4 w-4 mr-2" />
+                    添加選項
                   </Button>
                 </div>
 
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>自定義時長 (選填，分鐘)</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={option.customDuration || ""}
-                      onChange={(e) => {
-                        const newCustomOptions = [...customOptions];
-                        newCustomOptions[index] = { 
-                          ...newCustomOptions[index], 
-                          customDuration: e.target.value ? parseInt(e.target.value) : undefined 
-                        };
-                        setValue("customOptions", newCustomOptions);
-                      }}
-                      placeholder="如需自定義時長，請填寫"
-                      className="mb-2"
-                    />
+                {customOptions.length === 0 && (
+                  <p className="text-sm text-gray-500">
+                    尚未添加自定義選項。點擊「添加選項」按鈕添加部位、時長和價格的自定義設定。
+                  </p>
+                )}
+
+                {customOptions.map((option, index) => (
+                  <div key={index} className="space-y-4 border rounded-lg p-4">
+                    <div className="flex justify-between items-start">
+                      <div className="flex-1">
+                        <Label>部位 (選填)</Label>
+                        <Input
+                          value={option.bodyPart || ""}
+                          onChange={(e) => {
+                            const newCustomOptions = [...customOptions];
+                            newCustomOptions[index] = { ...newCustomOptions[index], bodyPart: e.target.value };
+                            setValue("customOptions", newCustomOptions);
+                          }}
+                          placeholder="例如：背部、手臂"
+                          className="mb-2"
+                        />
+                      </div>
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          const newCustomOptions = [...customOptions];
+                          newCustomOptions.splice(index, 1);
+                          setValue("customOptions", newCustomOptions);
+                        }}
+                      >
+                        <X className="h-4 w-4" />
+                      </Button>
+                    </div>
+
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <Label>自定義時長 (選填，分鐘)</Label>
+                        <Input
+                          type="number"
+                          min="1"
+                          value={option.customDuration || ""}
+                          onChange={(e) => {
+                            const newCustomOptions = [...customOptions];
+                            newCustomOptions[index] = { 
+                              ...newCustomOptions[index], 
+                              customDuration: e.target.value ? parseInt(e.target.value) : undefined 
+                            };
+                            setValue("customOptions", newCustomOptions);
+                          }}
+                          placeholder="如需自定義時長，請填寫"
+                          className="mb-2"
+                        />
+                      </div>
+                      <div>
+                        <Label>自定義價格 (選填，NT$)</Label>
+                        <Input
+                          type="number"
+                          min="0"
+                          value={option.customPrice || ""}
+                          onChange={(e) => {
+                            const newCustomOptions = [...customOptions];
+                            newCustomOptions[index] = { 
+                              ...newCustomOptions[index], 
+                              customPrice: e.target.value ? parseInt(e.target.value) : undefined 
+                            };
+                            setValue("customOptions", newCustomOptions);
+                          }}
+                          placeholder="如需自定義價格，請填寫"
+                          className="mb-2"
+                        />
+                      </div>
+                    </div>
                   </div>
-                  <div>
-                    <Label>自定義價格 (選填，NT$)</Label>
-                    <Input
-                      type="number"
-                      min="0"
-                      value={option.customPrice || ""}
-                      onChange={(e) => {
-                        const newCustomOptions = [...customOptions];
-                        newCustomOptions[index] = { 
-                          ...newCustomOptions[index], 
-                          customPrice: e.target.value ? parseInt(e.target.value) : undefined 
-                        };
-                        setValue("customOptions", newCustomOptions);
-                      }}
-                      placeholder="如需自定義價格，請填寫"
-                      className="mb-2"
-                    />
-                  </div>
-                </div>
+                ))}
               </div>
-            ))}
-          </div>
-        </CardContent>
-      </Card>
+            </CardContent>
+          </Card>
+        </div>
+      )}
       
       {serviceType === "genderPricing" && (
         <Card className="border rounded-lg p-4">
