@@ -23,7 +23,6 @@ import { CategorySelect } from "@/components/services/category-select";
 import { ServiceAreaPricing } from "@/components/services/service-area-pricing";
 import { ServiceGenderPricing } from "@/components/services/service-gender-pricing";
 import { ServiceAddonOptions } from "@/components/services/service-addon-options";
-import { ServicePackageComponent } from "@/components/services/service-package";
 
 // 定義服務表單數據類型
 export type ServiceFormData = {
@@ -70,27 +69,6 @@ export type ServiceFormData = {
     description?: string;
     price: number;
     isRequired: boolean;
-  }[];
-  packageItems?: {
-    id?: string;
-    serviceId: string;
-    serviceName: string;
-    duration: number;
-    price: number;
-    isRequired: boolean;
-    bodyPart?: string;
-    customDuration?: number;
-    customPrice?: number;
-  }[];
-  packageOptions?: {
-    id?: string;
-    name: string;
-    description?: string;
-    maxSelections: number;
-    items: {
-      id?: string;
-      name: string;
-    }[];
   }[];
 };
 
@@ -146,33 +124,6 @@ const formSchema = z.object({
       isRequired: z.boolean(),
     })
   ).optional(),
-  packageItems: z.array(
-    z.object({
-      id: z.string().optional(),
-      serviceId: z.string(),
-      serviceName: z.string(),
-      duration: z.number().min(1, { message: "時長必須大於0" }),
-      price: z.number().min(0, { message: "價格不能為負數" }),
-      isRequired: z.boolean(),
-      bodyPart: z.string().optional(),
-      customDuration: z.number().min(1, { message: "自定義時長必須大於0" }).optional(),
-      customPrice: z.number().min(0, { message: "自定義價格不能為負數" }).optional()
-    })
-  ).optional(),
-  packageOptions: z.array(
-    z.object({
-      id: z.string().optional(),
-      name: z.string(),
-      description: z.string().optional(),
-      maxSelections: z.number().min(1, { message: "選擇數量必須大於0" }),
-      items: z.array(
-        z.object({
-          id: z.string().optional(),
-          name: z.string(),
-        })
-      ),
-    })
-  ).optional(),
 });
 
 // 表單組件接口定義
@@ -223,16 +174,13 @@ export function ServiceForm({
       genderPrices: [],
       areaPrices: [],
       addons: [],
-      packageItems: [],
-      packageOptions: [],
     },
   });
 
   // 服務類型狀態
   const [serviceType, setServiceType] = useState<string>(
     service?.areaPrices?.length ? "areaPricing" :
-    service?.genderPrices?.length ? "genderPricing" : 
-    service?.packageItems?.length ? "package" : "standard"
+    service?.genderPrices?.length ? "genderPricing" : "standard"
   );
 
   // 多時長價格管理
@@ -275,12 +223,8 @@ export function ServiceForm({
     if (serviceType === "standard") {
       setValue("genderPrices", []);
       setValue("areaPrices", []);
-      setValue("packageItems", []);
-      setValue("packageOptions", []);
     } else if (serviceType === "genderPricing") {
       setValue("areaPrices", []);
-      setValue("packageItems", []);
-      setValue("packageOptions", []);
       
       // 檢查性別價格是否為空，若為空則初始化
       const currentGenderPrices = watch("genderPrices") || [];
@@ -292,22 +236,11 @@ export function ServiceForm({
       }
     } else if (serviceType === "areaPricing") {
       setValue("genderPrices", []);
-      setValue("packageItems", []);
-      setValue("packageOptions", []);
       
       // 檢查區域價格是否為空，若為空則初始化
       const currentAreaPrices = watch("areaPrices") || [];
       if (currentAreaPrices.length === 0) {
         setValue("areaPrices", [{ area: "", price: 0 }]);
-      }
-    } else if (serviceType === "package") {
-      setValue("genderPrices", []);
-      setValue("areaPrices", []);
-      if (!(watch("packageItems")?.length)) {
-        setValue("packageItems", []);
-      }
-      if (!(watch("packageOptions")?.length)) {
-        setValue("packageOptions", []);
       }
     }
   }, [serviceType, setValue, watch]);
@@ -320,12 +253,8 @@ export function ServiceForm({
     if (serviceType === "standard") {
       data.genderPrices = [];
       data.areaPrices = [];
-      data.packageItems = [];
-      data.packageOptions = [];
     } else if (serviceType === "genderPricing") {
       data.areaPrices = [];
-      data.packageItems = [];
-      data.packageOptions = [];
       
       // 驗證性別定價數據
       if (!data.genderPrices?.length || !data.genderPrices.every(gp => gp.gender && gp.price !== undefined)) {
@@ -334,21 +263,10 @@ export function ServiceForm({
       }
     } else if (serviceType === "areaPricing") {
       data.genderPrices = [];
-      data.packageItems = [];
-      data.packageOptions = [];
       
       // 驗證區域定價數據
       if (!data.areaPrices?.length || !data.areaPrices.every(ap => ap.area && ap.price !== undefined)) {
         alert("區域定價服務至少需要設定一個區域價格，且必須包含區域名稱和價格");
-        return;
-      }
-    } else if (serviceType === "package") {
-      data.genderPrices = [];
-      data.areaPrices = [];
-      
-      // 驗證套餐數據
-      if (!data.packageItems?.length) {
-        alert("套餐服務至少需要包含一個服務項目");
         return;
       }
     }
@@ -498,16 +416,6 @@ export function ServiceForm({
                 <span className="mr-2">區域定價</span>
                 <span className="text-xs opacity-70">(除毛/各部位不同價)</span>
               </Button>
-              
-              <Button
-                type="button"
-                variant={serviceType === "package" ? "default" : "outline"}
-                onClick={() => setServiceType("package")}
-                className="w-full justify-start"
-              >
-                <span className="mr-2">服務套餐</span>
-                <span className="text-xs opacity-70">(多項服務組合)</span>
-              </Button>
             </div>
           </div>
         </CardContent>
@@ -644,36 +552,6 @@ export function ServiceForm({
               onChange={(prices) => {
                 console.log("更新區域價格:", prices);
                 setValue("areaPrices", prices);
-              }}
-            />
-          </CardContent>
-        </Card>
-      )}
-      
-      {serviceType === "package" && (
-        <Card className="border rounded-lg p-4">
-          <CardHeader className="px-0 pt-0">
-            <CardTitle className="text-lg font-semibold">套餐設定</CardTitle>
-            <p className="text-sm text-gray-500">創建包含多個服務項目的套餐</p>
-          </CardHeader>
-          <CardContent className="px-0 pb-0">
-            <ServicePackageComponent 
-              servicePackage={{
-                name: watch("name") || "",
-                description: watch("description") || "",
-                price: Number(watch("price")) || 0,
-                duration: Number(watch("duration")) || 0,
-                items: watch("packageItems") || [],
-                options: watch("packageOptions") || []
-              }}
-              availableServices={availableServices}
-              onChange={(packageData) => {
-                setValue("name", packageData.name);
-                setValue("description", packageData.description || "");
-                setValue("price", packageData.price);
-                setValue("duration", packageData.duration);
-                setValue("packageItems", packageData.items);
-                setValue("packageOptions", packageData.options);
               }}
             />
           </CardContent>
