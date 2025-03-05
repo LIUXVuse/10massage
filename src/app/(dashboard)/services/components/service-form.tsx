@@ -223,8 +223,14 @@ export function ServiceForm({
     if (serviceType === "standard") {
       setValue("genderPrices", []);
       setValue("areaPrices", []);
+      // 確保 customOptions 不被清除
+      const currentCustomOptions = watch("customOptions") || [];
+      if (currentCustomOptions.length === 0) {
+        setValue("customOptions", []);
+      }
     } else if (serviceType === "genderPricing") {
       setValue("areaPrices", []);
+      setValue("customOptions", []); // 清除自定義選項
       
       // 檢查性別價格是否為空，若為空則初始化
       const currentGenderPrices = watch("genderPrices") || [];
@@ -236,6 +242,7 @@ export function ServiceForm({
       }
     } else if (serviceType === "areaPricing") {
       setValue("genderPrices", []);
+      setValue("customOptions", []); // 清除自定義選項
       
       // 檢查區域價格是否為空，若為空則初始化
       const currentAreaPrices = watch("areaPrices") || [];
