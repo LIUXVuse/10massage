@@ -133,7 +133,7 @@ const formSchema = z.object({
   customFields: z.array(
     z.object({
       id: z.string().optional(),
-      bodyPart: z.string(),
+      bodyPart: z.string().optional(),
       customDuration: z.number().min(1, { message: "時長必須大於0" }).optional(),
       customPrice: z.number().min(0, { message: "價格不能為負數" }).optional(),
     })
@@ -556,10 +556,10 @@ export function ServiceForm({
                 ))}
               </div>
 
-              {/* 自定義欄位 */}
+              {/* 自定義欄位 - 移到這裡，與多時長選項平級 */}
               <div className="space-y-4 border-t pt-4">
                 <div className="flex justify-between items-center">
-                  <Label>自定義選項 (選填)</Label>
+                  <Label>自定義選項 (全部選填)</Label>
                   <Button
                     type="button"
                     variant="outline"
@@ -581,9 +581,9 @@ export function ServiceForm({
                   <div key={index} className="space-y-4 border rounded-lg p-4">
                     <div className="flex justify-between items-start">
                       <div className="flex-1">
-                        <Label>部位</Label>
+                        <Label>部位 (選填)</Label>
                         <Input
-                          value={field.bodyPart}
+                          value={field.bodyPart || ""}
                           onChange={(e) => updateCustomField(index, "bodyPart", e.target.value)}
                           placeholder="例如：背部、手臂"
                           className="mb-2"
@@ -601,7 +601,7 @@ export function ServiceForm({
 
                     <div className="grid grid-cols-2 gap-4">
                       <div>
-                        <Label>自定義時長 (分鐘)</Label>
+                        <Label>自定義時長 (選填，分鐘)</Label>
                         <Input
                           type="number"
                           value={field.customDuration || ""}
@@ -611,7 +611,7 @@ export function ServiceForm({
                         />
                       </div>
                       <div>
-                        <Label>自定義價格 (NT$)</Label>
+                        <Label>自定義價格 (選填，NT$)</Label>
                         <Input
                           type="number"
                           value={field.customPrice || ""}
