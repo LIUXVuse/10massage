@@ -154,12 +154,15 @@ export async function POST(request: Request) {
     const data = await request.json();
     
     // 驗證必填字段
-    if (!data.name || !data.duration || data.price === undefined) {
+    if (!data.name || !data.durations || !data.durations.length) {
       return NextResponse.json(
-        { error: "必須提供服務名稱、時長和價格" },
+        { error: "必須提供服務名稱和至少一個時長價格選項" },
         { status: 400 }
       );
     }
+
+    // 使用第一個時長選項作為默認值
+    const defaultDuration = data.durations[0];
 
     // 處理服務創建
     const result = await prisma.$transaction(async (tx) => {
@@ -168,9 +171,11 @@ export async function POST(request: Request) {
         data: {
           name: data.name,
           description: data.description,
+          type: data.type,
           category: data.category,
-          duration: parseInt(data.duration),
-          price: parseFloat(data.price),
+          // 使用第一個時長選項作為默認值
+          duration: parseInt(defaultDuration.duration.toString()),
+          price: parseFloat(defaultDuration.price.toString()),
           isLimitedTime: data.isLimitedTime || false,
           limitedStartDate: data.limitedStartDate ? new Date(data.limitedStartDate) : null,
           limitedEndDate: data.limitedEndDate ? new Date(data.limitedEndDate) : null,
@@ -180,143 +185,64 @@ export async function POST(request: Request) {
           isFlashSale: data.isFlashSale || false,
           flashSaleNote: data.flashSaleNote,
           isActive: data.isActive !== undefined ? data.isActive : true,
-          // 直接在創建服務時創建自定義選項
-          customOptions: data.customFields?.length ? {
-            create: data.customFields.map((field: any) => ({
-              bodyPart: field.bodyPart || null,
-              customDuration: field.customDuration ? parseInt(field.customDuration) : null,
-              customPrice: field.customPrice ? parseFloat(field.customPrice) : null,
+          // 創建關聯數據
+          durations: {
+            create: data.durations.map((duration: any) => ({
+              duration: parseInt(duration.duration.toString()),
+              price: parseFloat(duration.price.toString()),
             }))
-          } : undefined
+          },
+          masseurs: data.masseursIds?.length ? {
+            connect: data.masseursIds.map((id: string) => ({ id }))
+          } : undefined,
+          genderPrices: data.genderPrices?.length ? {
+            create: data.genderPrices.map((genderPrice: any) => ({
+              gender: genderPrice.gender,
+              price: parseFloat(genderPrice.price.toString()),
+            }))
+          } : undefined,
+          areaPrices: data.areaPrices?.length ? {
+            create: data.areaPrices.map((areaPrice: any) => ({
+              areaName: areaPrice.area,
+              price: parseFloat(areaPrice.price.toString()),
+              gender: areaPrice.gender || null,
+            }))
+          } : undefined,
+          addons: data.addons?.length ? {
+            create: data.addons.map((addon: any) => ({
+              name: addon.name,
+              description: addon.description || null,
+              price: parseFloat(addon.price.toString()),
+              isRequired: addon.isRequired || false,
+            }))
+          } : undefined,
+        },
+        include: {
+          durations: true,
+          masseurs: true,
+          genderPrices: true,
+          areaPrices: true,
+          addons: true,
         },
       });
 
-      // 處理多時長選項
-      if (data.durations && data.durations.length > 0) {
+      // 創建自定義選項
+      if (data.customOptions?.length) {
         await Promise.all(
-          data.durations.map((duration: any) =>
-            tx.serviceDuration.create({
-              data: {
-                serviceId: service.id,
-                duration: parseInt(duration.duration),
-                price: parseFloat(duration.price),
-              },
-            })
-          )
-        );
-      }
-
-      // 處理按摩師關聯
-      if (data.masseursIds && data.masseursIds.length > 0) {
-        await Promise.all(
-          data.masseursIds.map((masseursId: string) =>
+          data.customOptions.map((option: any) =>
             tx.service.update({
               where: { id: service.id },
               data: {
-                masseurs: {
-                  connect: [{ id: masseursId }]
+                customOptions: {
+                  create: {
+                    bodyPart: option.bodyPart || null,
+                    customDuration: option.customDuration ? parseInt(option.customDuration.toString()) : null,
+                    customPrice: option.customPrice ? parseFloat(option.customPrice.toString()) : null,
+                  }
                 }
               }
             })
           )
-        );
-      }
-      
-      // 處理性別定價
-      if (data.genderPrices?.length > 0) {
-        await Promise.all(
-          data.genderPrices.map((genderPrice: any) =>
-            tx.serviceGenderPrice.create({
-              data: {
-                serviceId: service.id,
-                gender: genderPrice.gender,
-                price: parseFloat(genderPrice.price),
-                serviceName: genderPrice.serviceName || null,
-              },
-            })
-          )
-        );
-      }
-      
-      // 處理區域定價
-      if (data.areaPrices?.length > 0) {
-        await Promise.all(
-          data.areaPrices.map((areaPrice: any) =>
-            prisma.serviceAreaPrice.create({
-              data: {
-                serviceId: service.id,
-                areaName: areaPrice.areaName,
-                price: parseFloat(areaPrice.price),
-                gender: areaPrice.gender || null,
-              },
-            })
-          )
-        );
-      }
-      
-      // 處理附加選項
-      if (data.addons?.length > 0) {
-        await Promise.all(
-          data.addons.map((addon: any) =>
-            tx.serviceAddon.create({
-              data: {
-                serviceId: service.id,
-                name: addon.name,
-                description: addon.description || null,
-                price: parseFloat(addon.price),
-                isRequired: addon.isRequired || false,
-              },
-            })
-          )
-        );
-      }
-      
-      // 處理套餐項目
-      if (data.packageItems?.length > 0) {
-        await Promise.all(
-          data.packageItems.map((item: any) =>
-            tx.packageItem.create({
-              data: {
-                serviceId: item.serviceId,
-                duration: parseInt(item.duration),
-                isRequired: item.isRequired || true,
-                bodyPart: item.bodyPart || null,
-                customDuration: item.customDuration ? parseInt(item.customDuration) : null,
-                customPrice: item.customPrice ? parseFloat(item.customPrice) : null,
-                packageId: service.id
-              },
-            })
-          )
-        );
-      }
-      
-      // 處理套餐選項
-      if (data.packageOptions?.length > 0) {
-        await Promise.all(
-          data.packageOptions.map(async (option: any) => {
-            const packageOption = await prisma.packageOption.create({
-              data: {
-                name: option.name,
-                description: option.description || null,
-                maxSelections: option.maxSelections || 1,
-                packageId: service.id
-              },
-            });
-            
-            // 處理選項項目
-            if (option.items?.length > 0) {
-              await Promise.all(
-                option.items.map((item: any) =>
-                  prisma.optionItem.create({
-                    data: {
-                      name: item.name,
-                      packageOptionId: packageOption.id
-                    }
-                  })
-                )
-              );
-            }
-          })
         );
       }
 
