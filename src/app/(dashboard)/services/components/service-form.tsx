@@ -22,15 +22,15 @@ import { ServiceAddonOptions } from "@/components/services/service-addon-options
 
 import { Gender, GenderPrice, AreaPrice, AddonOption, CustomOption } from "@/types/service";
 
-// 定義服務表單數據類型
-export type ServiceFormData = {
-  id?: string;
+// 表單數據型別
+interface ServiceFormData {
   name: string;
   description?: string;
-  image?: string;
+  type: "SINGLE" | "COMBO";
   category?: string;
-  duration: number;
-  price: number;
+  durations: { id?: string; duration: number; price: number }[];
+  customOptions: CustomOption[];
+  masseursIds?: string[];
   isLimitedTime?: boolean;
   limitedTimeStart?: Date;
   limitedTimeEnd?: Date;
@@ -42,70 +42,24 @@ export type ServiceFormData = {
   flashSaleEnd?: Date;
   flashSaleNote?: string;
   active?: boolean;
-  masseursIds?: string[];
-  durations?: {
-    id?: string;
-    duration: number;
-    price: number;
-  }[];
   genderPrices?: GenderPrice[];
   areaPrices?: AreaPrice[];
   addons?: AddonOption[];
-  customOptions?: CustomOption[];
-};
+}
 
-// 定義表單驗證模式
+// 表單驗證 Schema
 const formSchema = z.object({
-  name: z.string().min(1, { message: "服務名稱不能為空" }),
+  name: z.string().min(1, { message: "請輸入服務名稱" }),
   description: z.string().optional(),
+  type: z.enum(["SINGLE", "COMBO"]),
   category: z.string().optional(),
-  duration: z.number().min(1, { message: "時長必須大於0" }),
-  price: z.number().min(0, { message: "價格不能為負數" }),
-  isLimitedTime: z.boolean().optional(),
-  limitedTimeStart: z.date().optional(),
-  limitedTimeEnd: z.date().optional(),
-  limitedSpecialPrice: z.number().optional(),
-  limitedDiscountPercent: z.number().optional(),
-  limitedNote: z.string().optional(),
-  isFlashSale: z.boolean().optional(),
-  flashSaleStart: z.date().optional(),
-  flashSaleEnd: z.date().optional(),
-  flashSaleNote: z.string().optional(),
-  active: z.boolean().optional(),
-  masseursIds: z.array(z.string()).optional(),
   durations: z.array(
     z.object({
       id: z.string().optional(),
       duration: z.number().min(1, { message: "時長必須大於0" }),
       price: z.number().min(0, { message: "價格不能為負數" }),
     })
-  ).optional(),
-  genderPrices: z.array(
-    z.object({
-      id: z.string().optional(),
-      gender: z.string(),
-      price: z.number().min(0, { message: "價格不能為負數" }),
-      serviceName: z.string().optional(),
-    })
-  ).optional(),
-  areaPrices: z.array(
-    z.object({
-      id: z.string().optional(),
-      area: z.string(),
-      price: z.number().min(0, { message: "價格不能為負數" }),
-      gender: z.string().optional(),
-      description: z.string().optional(),
-    })
-  ).optional(),
-  addons: z.array(
-    z.object({
-      id: z.string().optional(),
-      name: z.string(),
-      description: z.string().optional(),
-      price: z.number().min(0, { message: "價格不能為負數" }),
-      isRequired: z.boolean(),
-    })
-  ).optional(),
+  ),
   customOptions: z.array(
     z.object({
       id: z.string().optional(),
@@ -113,14 +67,45 @@ const formSchema = z.object({
       customDuration: z.number().min(1, "時長必須大於0").optional(),
       customPrice: z.number().min(0, "價格不能為負數").optional(),
     }).refine((data) => {
-      // 如果有任一欄位填寫，則其他欄位也必須填寫
       const hasAnyValue = data.bodyPart || data.customDuration || data.customPrice;
       if (!hasAnyValue) return true;
       
       const hasAllValues = data.bodyPart && data.customDuration && data.customPrice;
       return hasAllValues || "如果填寫任一欄位，則所有欄位都必須填寫";
     })
-  ).optional(),
+  ),
+  masseursIds: z.array(z.string()).optional(),
+  isLimitedTime: z.boolean().optional(),
+  limitedTimeStart: z.date().optional(),
+  limitedTimeEnd: z.date().optional(),
+  limitedSpecialPrice: z.number().min(0).optional(),
+  limitedDiscountPercent: z.number().min(0).max(100).optional(),
+  limitedNote: z.string().optional(),
+  isFlashSale: z.boolean().optional(),
+  flashSaleStart: z.date().optional(),
+  flashSaleEnd: z.date().optional(),
+  flashSaleNote: z.string().optional(),
+  active: z.boolean().optional(),
+  genderPrices: z.array(z.object({
+    id: z.string().optional(),
+    gender: z.enum(["MALE", "FEMALE"]),
+    price: z.number().min(0),
+    serviceName: z.string().optional(),
+  })).optional(),
+  areaPrices: z.array(z.object({
+    id: z.string().optional(),
+    area: z.string(),
+    price: z.number().min(0),
+    gender: z.enum(["MALE", "FEMALE"]).optional(),
+    description: z.string().optional(),
+  })).optional(),
+  addons: z.array(z.object({
+    id: z.string().optional(),
+    name: z.string().min(1, "請輸入附加項目名稱"),
+    description: z.string().optional(),
+    price: z.number().min(0),
+    isRequired: z.boolean(),
+  })).optional(),
 });
 
 // 自定義選項卡片組件
@@ -218,45 +203,45 @@ export function ServiceForm({
   categories = [],
   availableServices = []
 }: ServiceFormProps) {
-  // 表單管理
-  const {
-    register,
-    handleSubmit,
-    watch,
-    setValue,
-    formState: { errors },
-    control,
-  } = useForm<ServiceFormData>({
+  const form = useForm<ServiceFormData>({
     resolver: zodResolver(formSchema),
-    defaultValues: service || {
-      name: "",
-      description: "",
-      category: "",
-      duration: 60,
-      price: 0,
-      isLimitedTime: false,
-      isFlashSale: false,
-      active: true,
-      masseursIds: [],
-      durations: [],
-      genderPrices: [],
-      areaPrices: [],
-      addons: [],
-      customOptions: [],
+    defaultValues: {
+      name: service?.name || "",
+      description: service?.description || "",
+      type: service?.type || "SINGLE",
+      category: service?.category || "",
+      durations: service?.durations || [{ duration: 60, price: 0 }],
+      customOptions: service?.customOptions || [],
+      masseursIds: service?.masseursIds || [],
+      isLimitedTime: service?.isLimitedTime || false,
+      limitedTimeStart: service?.limitedTimeStart,
+      limitedTimeEnd: service?.limitedTimeEnd,
+      limitedSpecialPrice: service?.limitedSpecialPrice,
+      limitedDiscountPercent: service?.limitedDiscountPercent,
+      limitedNote: service?.limitedNote || "",
+      isFlashSale: service?.isFlashSale || false,
+      flashSaleStart: service?.flashSaleStart,
+      flashSaleEnd: service?.flashSaleEnd,
+      flashSaleNote: service?.flashSaleNote || "",
+      active: service?.active ?? true,
+      genderPrices: service?.genderPrices || [],
+      areaPrices: service?.areaPrices || [],
+      addons: service?.addons || [],
     },
   });
 
   // 服務類型狀態
   const [serviceType, setServiceType] = useState<string>(
+    service?.type === "COMBO" ? "COMBO" :
     service?.areaPrices?.length ? "AREA_PRICING" :
     service?.genderPrices?.length ? "GENDER_PRICING" : "SINGLE"
   );
 
   // 多時長價格管理
-  const durations = watch("durations") || [];
+  const durations = form.watch("durations") || [];
   
   // 自定義選項管理
-  const customOptions = watch("customOptions") || [];
+  const customOptions = form.watch("customOptions") || [];
 
   // 添加測試代碼
   useEffect(() => {
@@ -267,33 +252,33 @@ export function ServiceForm({
   // 添加時長
   const addDuration = () => {
     const newDurations = [...durations, { duration: 60, price: 0 }];
-    setValue("durations", newDurations);
+    form.setValue("durations", newDurations);
   };
 
   // 移除時長
   const removeDuration = (index: number) => {
     const newDurations = [...durations];
     newDurations.splice(index, 1);
-    setValue("durations", newDurations);
+    form.setValue("durations", newDurations);
   };
 
   // 更新時長
   const updateDuration = (index: number, field: "duration" | "price", value: number) => {
     const newDurations = [...durations];
     newDurations[index][field] = value;
-    setValue("durations", newDurations);
+    form.setValue("durations", newDurations);
   };
 
   // 自定義選項管理函數
   const addCustomOption = () => {
     const newCustomOptions = [...customOptions, { bodyPart: "", customDuration: undefined, customPrice: undefined }];
-    setValue("customOptions", newCustomOptions);
+    form.setValue("customOptions", newCustomOptions);
   };
 
   const removeCustomOption = (index: number) => {
     const newCustomOptions = [...customOptions];
     newCustomOptions.splice(index, 1);
-    setValue("customOptions", newCustomOptions);
+    form.setValue("customOptions", newCustomOptions);
   };
 
   const updateCustomOption = (index: number, field: keyof CustomOption, value: string | number | undefined) => {
@@ -302,37 +287,37 @@ export function ServiceForm({
       ...newCustomOptions[index],
       [field]: value
     };
-    setValue("customOptions", newCustomOptions);
+    form.setValue("customOptions", newCustomOptions);
   };
 
   // 限時優惠狀態
-  const isLimitedTime = watch("isLimitedTime");
-  const limitedTimeStart = watch("limitedTimeStart");
-  const limitedTimeEnd = watch("limitedTimeEnd");
+  const isLimitedTime = form.watch("isLimitedTime");
+  const limitedTimeStart = form.watch("limitedTimeStart");
+  const limitedTimeEnd = form.watch("limitedTimeEnd");
   
   // 限時閃購狀態
-  const isFlashSale = watch("isFlashSale");
-  const flashSaleStart = watch("flashSaleStart");
-  const flashSaleEnd = watch("flashSaleEnd");
+  const isFlashSale = form.watch("isFlashSale");
+  const flashSaleStart = form.watch("flashSaleStart");
+  const flashSaleEnd = form.watch("flashSaleEnd");
 
   // 處理服務類型變更，重置相關欄位
   useEffect(() => {
     console.log("服務類型變更為:", serviceType);
     
     if (serviceType === "SINGLE") {
-      setValue("genderPrices", []);
-      setValue("areaPrices", []);
+      form.setValue("genderPrices", []);
+      form.setValue("areaPrices", []);
       // 確保 customOptions 不被清除
-      const currentCustomOptions = watch("customOptions") || [];
+      const currentCustomOptions = form.watch("customOptions") || [];
       if (currentCustomOptions.length === 0) {
-        setValue("customOptions", []);
+        form.setValue("customOptions", []);
       }
-    } else if (serviceType === "PACKAGE") {
-      setValue("genderPrices", []);
-      setValue("areaPrices", []);
-      setValue("customOptions", []); // 清除自定義選項
+    } else if (serviceType === "COMBO") {
+      form.setValue("genderPrices", []);
+      form.setValue("areaPrices", []);
+      form.setValue("customOptions", []); // 清除自定義選項
     }
-  }, [serviceType, setValue, watch]);
+  }, [serviceType, form]);
 
   // 表單提交處理
   const onSaveService = (data: ServiceFormData) => {
@@ -366,8 +351,8 @@ export function ServiceForm({
       return;
     }
     
-    if (serviceType === "SINGLE" && (!data.duration || data.price === undefined)) {
-      alert("單項服務必須提供時長和價格");
+    if (serviceType === "SINGLE" && (!data.durations.length || data.durations.every(item => item.duration === undefined || item.price === undefined))) {
+      alert("單項服務必須提供至少一個時長和價格選項");
       return;
     }
 
@@ -416,7 +401,7 @@ export function ServiceForm({
   };
 
   return (
-    <form onSubmit={handleSubmit(onSaveService)} className="space-y-6">
+    <form onSubmit={form.handleSubmit(onSaveService)} className="space-y-6">
       {/* 基本信息部分 */}
       <Card className="border rounded-lg p-4">
         <CardHeader className="px-0 pt-0">
@@ -428,12 +413,12 @@ export function ServiceForm({
               <Label htmlFor="name">服務名稱</Label>
               <Input
                 id="name"
-                {...register("name")}
+                {...form.register("name")}
                 className="mb-2"
                 placeholder="請輸入服務名稱"
               />
-              {errors.name && (
-                <p className="text-sm text-red-500">{errors.name.message}</p>
+              {form.formState.errors.name && (
+                <p className="text-sm text-red-500">{form.formState.errors.name.message}</p>
               )}
             </div>
 
@@ -441,7 +426,7 @@ export function ServiceForm({
               <Label htmlFor="description">服務描述</Label>
               <Textarea
                 id="description"
-                {...register("description")}
+                {...form.register("description")}
                 className="mb-2"
                 placeholder="請輸入服務描述"
               />
@@ -451,8 +436,8 @@ export function ServiceForm({
               <Label htmlFor="category">服務分類</Label>
               <select
                 id="category"
-                value={watch("category") || ""}
-                onChange={(e) => setValue("category", e.target.value)}
+                value={form.watch("category") || ""}
+                onChange={(e) => form.setValue("category", e.target.value)}
                 className="w-full p-2 border rounded-md"
               >
                 <option value="">請選擇分類</option>
@@ -467,8 +452,8 @@ export function ServiceForm({
             <div className="flex items-center space-x-2">
               <Switch
                 id="active"
-                checked={watch("active") || false}
-                onCheckedChange={(checked) => setValue("active", checked)}
+                checked={form.watch("active") || false}
+                onCheckedChange={(checked) => form.setValue("active", checked)}
               />
               <Label htmlFor="active">啟用此服務</Label>
             </div>
@@ -496,8 +481,8 @@ export function ServiceForm({
               
               <Button
                 type="button"
-                variant={serviceType === "PACKAGE" ? "default" : "outline"}
-                onClick={() => setServiceType("PACKAGE")}
+                variant={serviceType === "COMBO" ? "default" : "outline"}
+                onClick={() => setServiceType("COMBO")}
                 className="w-full justify-start"
               >
                 <span className="mr-2">套餐服務</span>
@@ -517,40 +502,10 @@ export function ServiceForm({
             </CardHeader>
             <CardContent className="px-0 pb-0">
               <div className="space-y-6">
-                {/* 基本時長與價格 */}
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label htmlFor="duration">時長 (分鐘)</Label>
-                    <Input
-                      id="duration"
-                      type="number"
-                      min="1"
-                      {...register("duration", { valueAsNumber: true })}
-                      className="mb-2"
-                    />
-                    {errors.duration && (
-                      <p className="text-sm text-red-500">{errors.duration.message}</p>
-                    )}
-                  </div>
-                  <div>
-                    <Label htmlFor="price">價格 (NT$)</Label>
-                    <Input
-                      id="price"
-                      type="number"
-                      min="0"
-                      {...register("price", { valueAsNumber: true })}
-                      className="mb-2"
-                    />
-                    {errors.price && (
-                      <p className="text-sm text-red-500">{errors.price.message}</p>
-                    )}
-                  </div>
-                </div>
-
                 {/* 多時長選項 */}
                 <div className="space-y-4">
                   <div className="flex justify-between items-center">
-                    <Label>多時長選項 (選填)</Label>
+                    <Label>服務時長與價格設定</Label>
                     <Button
                       type="button"
                       variant="outline"
@@ -564,7 +519,7 @@ export function ServiceForm({
 
                   {durations.length === 0 && (
                     <p className="text-sm text-gray-500">
-                      尚未添加額外時長選項。點擊「添加時長」按鈕添加不同的時長與價格選擇。
+                      請添加至少一個時長與價格選項。
                     </p>
                   )}
 
@@ -572,6 +527,7 @@ export function ServiceForm({
                     <div key={index} className="flex items-start space-x-2">
                       <div className="grid grid-cols-2 gap-4 flex-1">
                         <div>
+                          <Label>時長 (分鐘)</Label>
                           <Input
                             type="number"
                             min="1"
@@ -583,6 +539,7 @@ export function ServiceForm({
                           />
                         </div>
                         <div>
+                          <Label>價格 (NT$)</Label>
                           <Input
                             type="number"
                             min="0"
@@ -599,6 +556,7 @@ export function ServiceForm({
                         variant="ghost"
                         size="sm"
                         onClick={() => removeDuration(index)}
+                        disabled={durations.length <= 1}
                       >
                         <X className="h-4 w-4" />
                       </Button>
@@ -622,7 +580,13 @@ export function ServiceForm({
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={addCustomOption}
+                    onClick={() => {
+                      const currentOptions = form.watch("customOptions") || [];
+                      form.setValue("customOptions", [
+                        ...currentOptions,
+                        { bodyPart: "", customDuration: undefined, customPrice: undefined }
+                      ]);
+                    }}
                     className="w-[140px]"
                   >
                     <Plus className="h-4 w-4 mr-2" />
@@ -630,20 +594,28 @@ export function ServiceForm({
                   </Button>
                 </div>
 
-                {customOptions.length === 0 && (
+                {(!form.watch("customOptions") || form.watch("customOptions").length === 0) && (
                   <p className="text-sm text-gray-500 mt-2 mb-4">
                     尚未添加自定義選項。點擊「添加選項」按鈕添加部位、時長和價格的自定義設定。
                   </p>
                 )}
 
                 <div className="space-y-4">
-                  {customOptions.map((option, index) => (
+                  {form.watch("customOptions")?.map((option, index) => (
                     <CustomOptionCard
                       key={index}
                       option={option}
-                      onUpdate={(field, value) => updateCustomOption(index, field, value)}
-                      onDelete={() => removeCustomOption(index)}
-                      errors={errors.customOptions?.[index] as Record<string, string>}
+                      onUpdate={(field: keyof CustomOption, value: string | number | undefined) => {
+                        const currentOptions = [...(form.watch("customOptions") || [])];
+                        currentOptions[index] = { ...currentOptions[index], [field]: value };
+                        form.setValue("customOptions", currentOptions);
+                      }}
+                      onDelete={() => {
+                        const currentOptions = [...(form.watch("customOptions") || [])];
+                        currentOptions.splice(index, 1);
+                        form.setValue("customOptions", currentOptions);
+                      }}
+                      errors={form.formState.errors.customOptions?.[index] as Record<string, string>}
                     />
                   ))}
                 </div>
@@ -661,11 +633,11 @@ export function ServiceForm({
           </CardHeader>
           <CardContent className="px-0 pb-0">
             <ServiceGenderPricing 
-              genderPrices={watch("genderPrices") || [
+              genderPrices={form.watch("genderPrices") || [
                 { gender: "MALE" as Gender, price: 0, serviceName: "" },
                 { gender: "FEMALE" as Gender, price: 0, serviceName: "" }
               ]}
-              onChange={(genderPrices: GenderPrice[]) => setValue("genderPrices", genderPrices)}
+              onChange={(genderPrices: GenderPrice[]) => form.setValue("genderPrices", genderPrices)}
             />
           </CardContent>
         </Card>
@@ -679,7 +651,7 @@ export function ServiceForm({
           </CardHeader>
           <CardContent className="px-0 pb-0">
             <ServiceAreaPricing 
-              areaPrices={watch("areaPrices")?.map(ap => ({
+              areaPrices={form.watch("areaPrices")?.map(ap => ({
                 id: ap.id,
                 area: ap.area || "",
                 areaName: ap.area || "",
@@ -688,7 +660,7 @@ export function ServiceForm({
               })) || []}
               onChange={(prices) => {
                 console.log("更新區域價格:", prices);
-                setValue("areaPrices", prices.map(p => ({
+                form.setValue("areaPrices", prices.map(p => ({
                   id: p.id,
                   area: p.areaName || "",
                   areaName: p.areaName || "",
@@ -710,12 +682,12 @@ export function ServiceForm({
           </CardHeader>
           <CardContent className="px-0 pb-0">
             <ServiceAddonOptions 
-              addonOptions={(watch("addons") || []).map(addon => ({
+              addonOptions={(form.watch("addons") || []).map(addon => ({
                 ...addon,
                 description: addon.description || undefined
               }))}
               onChange={(options: AddonOption[]) => {
-                setValue("addons", options);
+                form.setValue("addons", options);
               }}
             />
           </CardContent>
@@ -733,7 +705,7 @@ export function ServiceForm({
               <Switch
                 id="isLimitedTime"
                 checked={isLimitedTime || false}
-                onCheckedChange={(checked) => setValue("isLimitedTime", checked)}
+                onCheckedChange={(checked) => form.setValue("isLimitedTime", checked)}
               />
               <Label htmlFor="isLimitedTime">啟用限時優惠</Label>
             </div>
@@ -764,7 +736,7 @@ export function ServiceForm({
                           <Calendar
                             mode="single"
                             selected={limitedTimeStart}
-                            onSelect={(date) => setValue("limitedTimeStart", date)}
+                            onSelect={(date) => form.setValue("limitedTimeStart", date)}
                             initialFocus
                           />
                         </PopoverContent>
@@ -795,7 +767,7 @@ export function ServiceForm({
                           <Calendar
                             mode="single"
                             selected={limitedTimeEnd}
-                            onSelect={(date) => setValue("limitedTimeEnd", date)}
+                            onSelect={(date) => form.setValue("limitedTimeEnd", date)}
                             initialFocus
                           />
                         </PopoverContent>
@@ -811,7 +783,7 @@ export function ServiceForm({
                       id="limitedSpecialPrice"
                       type="number"
                       min="0"
-                      {...register("limitedSpecialPrice", { valueAsNumber: true })}
+                      {...form.register("limitedSpecialPrice", { valueAsNumber: true })}
                       className="mb-2"
                       placeholder="輸入優惠特價"
                     />
@@ -824,7 +796,7 @@ export function ServiceForm({
                       type="number"
                       min="0"
                       max="100"
-                      {...register("limitedDiscountPercent", { valueAsNumber: true })}
+                      {...form.register("limitedDiscountPercent", { valueAsNumber: true })}
                       className="mb-2"
                       placeholder="例如：80代表八折"
                     />
@@ -835,7 +807,7 @@ export function ServiceForm({
                   <Label htmlFor="limitedNote">優惠說明</Label>
                   <Textarea
                     id="limitedNote"
-                    {...register("limitedNote")}
+                    {...form.register("limitedNote")}
                     className="mb-2"
                     placeholder="例如：季節限定優惠"
                   />
@@ -857,7 +829,7 @@ export function ServiceForm({
               <Switch
                 id="isFlashSale"
                 checked={isFlashSale || false}
-                onCheckedChange={(checked) => setValue("isFlashSale", checked)}
+                onCheckedChange={(checked) => form.setValue("isFlashSale", checked)}
               />
               <Label htmlFor="isFlashSale">啟用限時閃購</Label>
             </div>
@@ -888,7 +860,7 @@ export function ServiceForm({
                           <Calendar
                             mode="single"
                             selected={flashSaleStart}
-                            onSelect={(date) => setValue("flashSaleStart", date)}
+                            onSelect={(date) => form.setValue("flashSaleStart", date)}
                             initialFocus
                           />
                         </PopoverContent>
@@ -919,7 +891,7 @@ export function ServiceForm({
                           <Calendar
                             mode="single"
                             selected={flashSaleEnd}
-                            onSelect={(date) => setValue("flashSaleEnd", date)}
+                            onSelect={(date) => form.setValue("flashSaleEnd", date)}
                             initialFocus
                           />
                         </PopoverContent>
@@ -932,7 +904,7 @@ export function ServiceForm({
                   <Label htmlFor="flashSaleNote">閃購說明</Label>
                   <Textarea
                     id="flashSaleNote"
-                    {...register("flashSaleNote")}
+                    {...form.register("flashSaleNote")}
                     className="mb-2"
                     placeholder="例如：限量5名，先搶先得"
                   />
@@ -957,7 +929,7 @@ export function ServiceForm({
               <div className="grid grid-cols-2 md:grid-cols-3 gap-2">
                 {masseurs.map((masseur) => {
                   // 獲取當前選中的按摩師列表
-                  const currentMasseurs = watch("masseursIds") || [];
+                  const currentMasseurs = form.watch("masseursIds") || [];
                   const isChecked = currentMasseurs.includes(masseur.id);
                   
                   return (
@@ -976,10 +948,10 @@ export function ServiceForm({
                           
                           if (checked) {
                             const newMasseursIds = [...currentMasseurs, masseur.id];
-                            setValue("masseursIds", newMasseursIds);
+                            form.setValue("masseursIds", newMasseursIds);
                           } else {
                             const newMasseursIds = currentMasseurs.filter((id) => id !== masseur.id);
-                            setValue("masseursIds", newMasseursIds);
+                            form.setValue("masseursIds", newMasseursIds);
                           }
                         }}
                       />
