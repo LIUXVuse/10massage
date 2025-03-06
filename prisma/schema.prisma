@@ -68,7 +68,7 @@ model Service {
   durations              ServiceDuration[]
   genderPrices           ServiceGenderPrice[]
   masseurs               Masseur[]            @relation("MasseurToService")
-  customOptions          ServiceCustomOption[]
+  customOptions          CustomOption[]
 }
 
 model ServiceDuration {
@@ -169,7 +169,7 @@ model OptionItem {
   packageOption   PackageOption @relation(fields: [packageOptionId], references: [id], onDelete: Cascade)
 }
 
-model ServiceCustomOption {
+model CustomOption {
   id             String   @id @default(cuid())
   bodyPart       String?  // 部位（選填）
   customDuration Int?     // 自定義時長（選填）

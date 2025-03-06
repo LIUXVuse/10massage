@@ -168,7 +168,6 @@ export async function POST(request: Request) {
         data: {
           name: data.name,
           description: data.description,
-          image: data.image,
           category: data.category,
           duration: parseInt(data.duration),
           price: parseFloat(data.price),
@@ -181,24 +180,16 @@ export async function POST(request: Request) {
           isFlashSale: data.isFlashSale || false,
           flashSaleNote: data.flashSaleNote,
           isActive: data.isActive !== undefined ? data.isActive : true,
+          // 直接在創建服務時創建自定義選項
+          customOptions: data.customFields?.length ? {
+            create: data.customFields.map((field: any) => ({
+              bodyPart: field.bodyPart || null,
+              customDuration: field.customDuration ? parseInt(field.customDuration) : null,
+              customPrice: field.customPrice ? parseFloat(field.customPrice) : null,
+            }))
+          } : undefined
         },
       });
-
-      // 處理自定義選項
-      if (data.customFields && data.customFields.length > 0) {
-        await Promise.all(
-          data.customFields.map((field: any) =>
-            prisma.serviceCustomOption.create({
-              data: {
-                serviceId: service.id,
-                bodyPart: field.bodyPart,
-                customDuration: field.customDuration ? parseInt(field.customDuration) : null,
-                customPrice: field.customPrice ? parseFloat(field.customPrice) : null,
-              },
-            })
-          )
-        );
-      }
 
       // 處理多時長選項
       if (data.durations && data.durations.length > 0) {
@@ -386,28 +377,21 @@ export async function PUT(request: Request) {
           },
         });
 
-        // 更新自定義選項
-        if (data.customFields) {
-          // 刪除現有的自定義選項
-          await tx.serviceCustomOption.deleteMany({
-            where: { serviceId: data.id },
+        // 更新服務時的自定義選項處理
+        if (data.customFields !== undefined) {
+          await tx.service.update({
+            where: { id: data.id },
+            data: {
+              customOptions: {
+                deleteMany: {},
+                create: data.customFields.map((field: any) => ({
+                  bodyPart: field.bodyPart || null,
+                  customDuration: field.customDuration ? parseInt(field.customDuration) : null,
+                  customPrice: field.customPrice ? parseFloat(field.customPrice) : null,
+                }))
+              }
+            }
           });
-
-          // 創建新的自定義選項
-          if (data.customFields.length > 0) {
-            await Promise.all(
-              data.customFields.map((field: any) =>
-                prisma.serviceCustomOption.create({
-                  data: {
-                    serviceId: data.id,
-                    bodyPart: field.bodyPart,
-                    customDuration: field.customDuration ? parseInt(field.customDuration) : null,
-                    customPrice: field.customPrice ? parseFloat(field.customPrice) : null,
-                  },
-                })
-              )
-            );
-          }
         }
 
         // 處理多時長選項（先刪除舊的，再添加新的）
