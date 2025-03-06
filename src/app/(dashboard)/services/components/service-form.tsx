@@ -85,26 +85,20 @@ const formSchema = z.object({
   customOptions: z.array(
     z.object({
       id: z.string().optional(),
-      bodyPart: z.string().min(1, "請輸入部位名稱").optional(),
-      customDuration: z.number().min(1, "時長必須大於0").optional(),
-      customPrice: z.number().min(0, "價格不能為負數").optional(),
-    }).refine((data) => {
-      const hasAnyValue = data.bodyPart || data.customDuration || data.customPrice;
-      if (!hasAnyValue) return true;
-      
-      const hasAllValues = data.bodyPart && data.customDuration && data.customPrice;
-      return hasAllValues || "如果填寫任一欄位，則所有欄位都必須填寫";
+      bodyPart: z.string().optional(),
+      customDuration: z.number().optional(),
+      customPrice: z.number().optional(),
     })
   ),
   masseursIds: z.array(z.string()).optional(),
   isLimitedTime: z.boolean().optional(),
-  limitedStartDate: z.string().optional(),
-  limitedEndDate: z.string().optional(),
-  limitedSpecialPrice: z.number().min(0).optional(),
-  limitedDiscountPercent: z.number().min(0).max(100).optional(),
-  limitedNote: z.string().optional(),
+  limitedStartDate: z.string().nullable().optional(),
+  limitedEndDate: z.string().nullable().optional(),
+  limitedSpecialPrice: z.number().nullable().optional(),
+  limitedDiscountPercent: z.number().nullable().optional(),
+  limitedNote: z.string().nullable().optional(),
   isFlashSale: z.boolean().optional(),
-  flashSaleNote: z.string().optional(),
+  flashSaleNote: z.string().nullable().optional(),
   active: z.boolean().optional(),
   genderPrices: z.array(z.object({
     id: z.string().optional(),
@@ -346,20 +340,8 @@ export function ServiceForm({
       data.areaPrices = [];
     } else if (serviceType === "GENDER_PRICING") {
       data.areaPrices = [];
-      
-      // 驗證性別定價數據
-      if (!data.genderPrices?.length || !data.genderPrices.every(gp => gp.gender && gp.price !== undefined)) {
-        alert("性別定價服務至少需要設定一個性別價格，且必須包含性別和價格");
-        return;
-      }
     } else if (serviceType === "AREA_PRICING") {
       data.genderPrices = [];
-      
-      // 驗證區域定價數據
-      if (!data.areaPrices?.length || !data.areaPrices.every(ap => ap.area && ap.price !== undefined)) {
-        alert("區域定價服務至少需要設定一個區域價格，且必須包含區域名稱和價格");
-        return;
-      }
     }
 
     // 檢查必填字段
@@ -367,26 +349,9 @@ export function ServiceForm({
       alert("請填寫服務名稱");
       return;
     }
-    
-    if (serviceType === "SINGLE" && (!data.durations.length || data.durations.every(item => item.duration === undefined || item.price === undefined))) {
-      alert("單項服務必須提供至少一個時長和價格選項");
-      return;
-    }
 
-    // 檢查限時優惠邏輯
-    if (data.isLimitedTime) {
-      if (!data.limitedStartDate || !data.limitedEndDate) {
-        // 處理錯誤：限時優惠需要開始和結束時間
-        alert("限時優惠需要設定開始和結束時間");
-        return;
-      }
-      if (data.limitedEndDate < data.limitedStartDate) {
-        // 處理錯誤：結束時間不能早於開始時間
-        alert("限時優惠結束時間不能早於開始時間");
-        return;
-      }
-    } else {
-      // 如果不是限時優惠，清除相關字段
+    // 清理限時優惠相關字段
+    if (!data.isLimitedTime) {
       data.limitedStartDate = null;
       data.limitedEndDate = null;
       data.limitedSpecialPrice = null;
@@ -394,15 +359,8 @@ export function ServiceForm({
       data.limitedNote = null;
     }
 
-    // 檢查閃購邏輯
-    if (data.isFlashSale) {
-      if (!data.flashSaleNote) {
-        // 處理錯誤：閃購需要開始和結束時間
-        alert("限時閃購需要設定開始和結束時間");
-        return;
-      }
-    } else {
-      // 如果不是閃購，清除相關字段
+    // 清理閃購相關字段
+    if (!data.isFlashSale) {
       data.flashSaleNote = null;
     }
 
