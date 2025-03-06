@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ServiceForm } from "@/components/services/service-form";
+import { ServiceForm } from "@/app/(dashboard)/services/components/service-form";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2, Clock, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";
@@ -43,6 +43,12 @@ interface Service {
       id: string;
       name: string;
     };
+  }>;
+  customOptions: Array<{
+    id: string;
+    bodyPart: string;
+    customDuration: number;
+    customPrice: number;
   }>;
 }
 
@@ -109,8 +115,8 @@ export default function ServicesPage() {
           description: service.description || "",
           type: service.type || "SINGLE",
           category: service.category || "MASSAGE",
-          isRecommended: !!service.isRecommend, // 轉換為布爾值
-          isRecommend: !!service.isRecommend, // 保留原始字段名
+          isRecommended: !!service.isRecommend,
+          isRecommend: !!service.isRecommend,
           recommendOrder: service.recommendOrder || 0,
           // 期間限定相關字段
           isLimitedTime: !!service.isLimitedTime,
@@ -137,6 +143,15 @@ export default function ServicesPage() {
                   id: m.id || "",
                   name: m.name || ""
                 }
+              }))
+            : [],
+          // 處理自定義選項
+          customOptions: Array.isArray(service.customOptions)
+            ? service.customOptions.map(option => ({
+                id: option.id || "",
+                bodyPart: option.bodyPart || "",
+                customDuration: option.customDuration || 0,
+                customPrice: option.customPrice || 0
               }))
             : []
         };
@@ -165,14 +180,25 @@ export default function ServicesPage() {
 
   const handleSubmit = async (data: any) => {
     try {
-      const method = data.id ? "PUT" : "POST";
-      const apiUrl = "/api/services" + (data.id ? `?id=${data.id}` : "");
+      // 處理自定義選項數據
+      const formattedData = {
+        ...data,
+        customOptions: data.customOptions?.map((option: any) => ({
+          id: option.id || undefined,
+          bodyPart: option.bodyPart || null,
+          customDuration: option.customDuration || null,
+          customPrice: option.customPrice || null
+        })) || []
+      };
+
+      const method = formattedData.id ? "PUT" : "POST";
+      const apiUrl = "/api/services" + (formattedData.id ? `?id=${formattedData.id}` : "");
       
       // 提交表單數據到API
       const response = await fetch(apiUrl, {
         method,
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(data),
+        body: JSON.stringify(formattedData),
       });
       
       if (!response.ok) {
