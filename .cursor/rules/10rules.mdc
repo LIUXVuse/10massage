@@ -1,9 +1,203 @@
 ---
-description:
-globs:
+description: 10Massage 專案開發規範
+globs: 
+alwaysApply: false
 ---
+1. 資料庫規範
+1.1 Prisma Schema 命名規則
 
-# Your rule content
+// ✅ 正確的模型命名
+model Service { ... }
+model CustomOption { ... }
 
-- You can @ files here
-- You can use markdown but dont have to
+// ❌ 避免的命名方式
+model service { ... }
+model ServiceCustomOption { ... }  // 過於冗長
+
+1.2 關聯定義規則
+
+// ✅ 正確的關聯定義
+model Service {
+  id            String         @id @default(cuid())
+  customOptions CustomOption[]
+}
+
+// ❌ 避免的關聯定義
+model Service {
+  id            String         @id
+  customOptions CustomOption[] @relation("ServiceToCustomOption")  // 除非必要，否則不需要指定關聯名
+}
+
+2. API 路由規範
+2.1 路由結構
+// ✅ 正確的路由結構
+export async function GET(request: Request) {
+  try {
+    // 1. 參數處理
+    const { searchParams } = new URL(request.url);
+    
+    // 2. 權限驗證（如果需要）
+    if (!await isAdmin()) {
+      return NextResponse.json({ error: "未授權" }, { status: 401 });
+    }
+    
+    // 3. 業務邏輯
+    const result = await prisma.service.findMany({ ... });
+    
+    // 4. 回傳結果
+    return NextResponse.json(result);
+  } catch (error) {
+    console.error("錯誤描述:", error);
+    return NextResponse.json({ error: "錯誤信息" }, { status: 500 });
+  }
+}
+
+2.2 事務處理
+// ✅ 正確的事務處理
+const result = await prisma.$transaction(async (tx) => {
+  // 所有相關操作都使用 tx
+  const service = await tx.service.create({ ... });
+  await tx.customOption.create({ ... });
+});
+
+// ❌ 避免的做法
+const service = await prisma.service.create({ ... });
+await prisma.customOption.create({ ... });  // 應該在事務中處理
+
+3. 前端組件規範
+3.1 組件結構
+// ✅ 正確的組件結構
+export function ServiceForm({ service, onSubmit }: ServiceFormProps) {
+  // 1. Hooks 定義
+  const form = useForm<ServiceFormData>({ ... });
+  
+  // 2. 狀態管理
+  const [serviceType, setServiceType] = useState<string>("SINGLE");
+  
+  // 3. 事件處理函數
+  const handleSubmit = async (data: ServiceFormData) => { ... };
+  
+  // 4. 渲染邏輯
+  return (
+    <form onSubmit={handleSubmit}>
+      <ComponentGroup1 />
+      <ComponentGroup2 />
+    </form>
+  );
+}
+
+3.2 表單處理
+
+// ✅ 正確的表單處理
+const {
+  register,
+  handleSubmit,
+  watch,
+  setValue,
+  formState: { errors },
+} = useForm<ServiceFormData>({
+  resolver: zodResolver(formSchema),
+  defaultValues: service || { ... }
+});
+
+// ❌ 避免的做法
+const [formData, setFormData] = useState({ ... });  // 複雜表單避免使用原生 state
+
+4. 類型定義規範
+4.1 介面定義
+// ✅ 正確的類型定義
+export interface CustomOption {
+  id?: string;
+  bodyPart?: string;
+  customDuration?: number;
+  customPrice?: number;
+}
+
+// ❌ 避免的做法
+export type CustomOption = {  // 優先使用 interface
+  id: string | undefined;     // 避免使用 union with undefined
+  // ...
+}
+
+4.2 Zod Schema 定義
+// ✅ 正確的 Schema 定義
+const formSchema = z.object({
+  name: z.string().min(1, { message: "服務名稱不能為空" }),
+  customOptions: z.array(
+    z.object({
+      bodyPart: z.string().optional(),
+      customDuration: z.number().min(1).optional(),
+      customPrice: z.number().min(0).optional(),
+    })
+  ).optional(),
+});
+
+5. 錯誤處理規範
+5.1 API 錯誤處理
+
+// ✅ 正確的錯誤處理
+try {
+  const result = await someOperation();
+  return NextResponse.json(result);
+} catch (error) {
+  console.error("操作失敗:", error);
+  return NextResponse.json(
+    { error: "操作失敗，請稍後再試" },
+    { status: 500 }
+  );
+}
+
+5.2 前端錯誤處理
+// ✅ 正確的錯誤處理
+const handleSubmit = async (data: ServiceFormData) => {
+  try {
+    await submitData(data);
+    toast.success("保存成功");
+  } catch (error) {
+    console.error("保存失敗:", error);
+    toast.error("保存失敗，請稍後再試");
+  }
+};
+
+6. 註釋規範
+6.1 代碼註釋
+// ✅ 正確的註釋方式
+// 處理自定義選項
+if (data.customFields?.length > 0) {
+  await Promise.all(
+    data.customFields.map((field) => createCustomOption(field))
+  );
+}
+
+// ❌ 避免的註釋方式
+// 創建選項
+await createOption();  // 註釋過於簡單，沒有提供額外信息
+
+6.2 函數註釋
+// ✅ 正確的函數註釋
+/**
+ * 創建服務的自定義選項
+ * @param {CustomOption} option - 自定義選項數據
+ * @param {string} serviceId - 關聯的服務ID
+ * @returns {Promise<CustomOption>} 創建的自定義選項
+ */
+async function createCustomOption(option: CustomOption, serviceId: string) {
+  // ...
+}
+
+
+7. 測試規範
+7.1 單元測試
+// ✅ 正確的測試結構
+describe('ServiceForm', () => {
+  it('應該正確渲染自定義選項', () => {
+    // 準備測試數據
+    const customOptions = [ ... ];
+    
+    // 執行測試
+    render(<ServiceForm customOptions={customOptions} />);
+    
+    // 驗證結果
+    expect(screen.getByText('自定義選項')).toBeInTheDocument();
+  });
+});

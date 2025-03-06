@@ -109,12 +109,90 @@ const formSchema = z.object({
   customOptions: z.array(
     z.object({
       id: z.string().optional(),
-      bodyPart: z.string().optional(),
-      customDuration: z.number().min(1, { message: "時長必須大於0" }).optional(),
-      customPrice: z.number().min(0, { message: "價格不能為負數" }).optional(),
+      bodyPart: z.string().min(1, "請輸入部位名稱").optional(),
+      customDuration: z.number().min(1, "時長必須大於0").optional(),
+      customPrice: z.number().min(0, "價格不能為負數").optional(),
+    }).refine((data) => {
+      // 如果有任一欄位填寫，則其他欄位也必須填寫
+      const hasAnyValue = data.bodyPart || data.customDuration || data.customPrice;
+      if (!hasAnyValue) return true;
+      
+      const hasAllValues = data.bodyPart && data.customDuration && data.customPrice;
+      return hasAllValues || "如果填寫任一欄位，則所有欄位都必須填寫";
     })
   ).optional(),
 });
+
+// 自定義選項卡片組件
+const CustomOptionCard = ({ 
+  option, 
+  onUpdate, 
+  onDelete,
+  errors
+}: { 
+  option: CustomOption;
+  onUpdate: (field: keyof CustomOption, value: string | number | undefined) => void;
+  onDelete: () => void;
+  errors?: Record<string, string>;
+}) => {
+  return (
+    <div className="space-y-4 border rounded-lg p-4 relative hover:border-blue-200 transition-colors">
+      <Button
+        type="button"
+        variant="ghost"
+        size="sm"
+        className="absolute right-2 top-2 hover:bg-red-50 hover:text-red-500"
+        onClick={onDelete}
+      >
+        <X className="h-4 w-4" />
+      </Button>
+      
+      <div className="pr-8">
+        <Label className="text-sm font-medium">部位名稱</Label>
+        <Input
+          value={option.bodyPart || ""}
+          onChange={(e) => onUpdate("bodyPart", e.target.value)}
+          placeholder="例如：背部、手臂"
+          className={`mt-1.5 ${errors?.bodyPart ? 'border-red-500' : ''}`}
+        />
+        {errors?.bodyPart && (
+          <p className="text-sm text-red-500 mt-1">{errors.bodyPart}</p>
+        )}
+      </div>
+
+      <div className="grid grid-cols-2 gap-4">
+        <div>
+          <Label className="text-sm font-medium">時長 (分鐘)</Label>
+          <Input
+            type="number"
+            min="1"
+            value={option.customDuration || ""}
+            onChange={(e) => onUpdate("customDuration", e.target.value ? parseInt(e.target.value) : undefined)}
+            placeholder="自定義時長"
+            className={`mt-1.5 ${errors?.customDuration ? 'border-red-500' : ''}`}
+          />
+          {errors?.customDuration && (
+            <p className="text-sm text-red-500 mt-1">{errors.customDuration}</p>
+          )}
+        </div>
+        <div>
+          <Label className="text-sm font-medium">價格 (NT$)</Label>
+          <Input
+            type="number"
+            min="0"
+            value={option.customPrice || ""}
+            onChange={(e) => onUpdate("customPrice", e.target.value ? parseInt(e.target.value) : undefined)}
+            placeholder="自定義價格"
+            className={`mt-1.5 ${errors?.customPrice ? 'border-red-500' : ''}`}
+          />
+          {errors?.customPrice && (
+            <p className="text-sm text-red-500 mt-1">{errors.customPrice}</p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+};
 
 // 表單組件接口定義
 interface ServiceFormProps {
@@ -204,6 +282,27 @@ export function ServiceForm({
     const newDurations = [...durations];
     newDurations[index][field] = value;
     setValue("durations", newDurations);
+  };
+
+  // 自定義選項管理函數
+  const addCustomOption = () => {
+    const newCustomOptions = [...customOptions, { bodyPart: "", customDuration: undefined, customPrice: undefined }];
+    setValue("customOptions", newCustomOptions);
+  };
+
+  const removeCustomOption = (index: number) => {
+    const newCustomOptions = [...customOptions];
+    newCustomOptions.splice(index, 1);
+    setValue("customOptions", newCustomOptions);
+  };
+
+  const updateCustomOption = (index: number, field: keyof CustomOption, value: string | number | undefined) => {
+    const newCustomOptions = [...customOptions];
+    newCustomOptions[index] = {
+      ...newCustomOptions[index],
+      [field]: value
+    };
+    setValue("customOptions", newCustomOptions);
   };
 
   // 限時優惠狀態
@@ -514,20 +613,17 @@ export function ServiceForm({
           <Card className="border rounded-lg p-4">
             <CardHeader className="px-0 pt-0">
               <CardTitle className="text-lg font-semibold">自定義選項</CardTitle>
-              <p className="text-sm text-gray-500">可以為服務添加特定部位、時長和價格的設定</p>
+              <p className="text-sm text-gray-500">可以為服務添加特定部位、時長和價格的設定（全部選填）</p>
             </CardHeader>
             <CardContent className="px-0 pb-0">
               <div className="space-y-4">
                 <div className="flex justify-between items-center">
-                  <Label>自定義選項 (全部選填)</Label>
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
-                    onClick={() => {
-                      const newCustomOptions = [...customOptions, { bodyPart: "", customDuration: undefined, customPrice: undefined }];
-                      setValue("customOptions", newCustomOptions);
-                    }}
+                    onClick={addCustomOption}
+                    className="w-[140px]"
                   >
                     <Plus className="h-4 w-4 mr-2" />
                     添加選項
@@ -535,81 +631,22 @@ export function ServiceForm({
                 </div>
 
                 {customOptions.length === 0 && (
-                  <p className="text-sm text-gray-500">
+                  <p className="text-sm text-gray-500 mt-2 mb-4">
                     尚未添加自定義選項。點擊「添加選項」按鈕添加部位、時長和價格的自定義設定。
                   </p>
                 )}
 
-                {customOptions.map((option, index) => (
-                  <div key={index} className="space-y-4 border rounded-lg p-4">
-                    <div className="flex justify-between items-start">
-                      <div className="flex-1">
-                        <Label>部位 (選填)</Label>
-                        <Input
-                          value={option.bodyPart || ""}
-                          onChange={(e) => {
-                            const newCustomOptions = [...customOptions];
-                            newCustomOptions[index] = { ...newCustomOptions[index], bodyPart: e.target.value };
-                            setValue("customOptions", newCustomOptions);
-                          }}
-                          placeholder="例如：背部、手臂"
-                          className="mb-2"
-                        />
-                      </div>
-                      <Button
-                        type="button"
-                        variant="ghost"
-                        size="sm"
-                        onClick={() => {
-                          const newCustomOptions = [...customOptions];
-                          newCustomOptions.splice(index, 1);
-                          setValue("customOptions", newCustomOptions);
-                        }}
-                      >
-                        <X className="h-4 w-4" />
-                      </Button>
-                    </div>
-
-                    <div className="grid grid-cols-2 gap-4">
-                      <div>
-                        <Label>自定義時長 (選填，分鐘)</Label>
-                        <Input
-                          type="number"
-                          min="1"
-                          value={option.customDuration || ""}
-                          onChange={(e) => {
-                            const newCustomOptions = [...customOptions];
-                            newCustomOptions[index] = { 
-                              ...newCustomOptions[index], 
-                              customDuration: e.target.value ? parseInt(e.target.value) : undefined 
-                            };
-                            setValue("customOptions", newCustomOptions);
-                          }}
-                          placeholder="如需自定義時長，請填寫"
-                          className="mb-2"
-                        />
-                      </div>
-                      <div>
-                        <Label>自定義價格 (選填，NT$)</Label>
-                        <Input
-                          type="number"
-                          min="0"
-                          value={option.customPrice || ""}
-                          onChange={(e) => {
-                            const newCustomOptions = [...customOptions];
-                            newCustomOptions[index] = { 
-                              ...newCustomOptions[index], 
-                              customPrice: e.target.value ? parseInt(e.target.value) : undefined 
-                            };
-                            setValue("customOptions", newCustomOptions);
-                          }}
-                          placeholder="如需自定義價格，請填寫"
-                          className="mb-2"
-                        />
-                      </div>
-                    </div>
-                  </div>
-                ))}
+                <div className="space-y-4">
+                  {customOptions.map((option, index) => (
+                    <CustomOptionCard
+                      key={index}
+                      option={option}
+                      onUpdate={(field, value) => updateCustomOption(index, field, value)}
+                      onDelete={() => removeCustomOption(index)}
+                      errors={errors.customOptions?.[index] as Record<string, string>}
+                    />
+                  ))}
+                </div>
               </div>
             </CardContent>
           </Card>
