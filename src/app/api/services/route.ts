@@ -113,31 +113,24 @@ export async function GET(request: Request) {
 
     // 轉換結果為前端友好格式
     const formattedServices = services.map((service) => {
-      // 提取按摩師信息
-      const masseurs = service.masseurs.map((masseur) => ({
-        id: masseur.id,
-        name: masseur.name,
-        avatar: masseur.image || null,
-      }));
-
-      // 格式化自定義選項
-      const customFields = service.customOptions?.map((option) => ({
-        id: option.id,
-        bodyPart: option.bodyPart || null,
-        customDuration: option.customDuration || null,
-        customPrice: option.customPrice || null,
-      })) || [];
-
-      // 返回格式化服務對象
-      return {
+      // 格式化服務對象
+      const formattedService = {
         ...service,
-        masseurs,
-        customFields,
-        // 移除原始按摩師關聯數據
-        masseursRelations: undefined,
-        // 移除原始自定義選項關聯數據
+        masseurs: service.masseurs?.map((masseur: any) => ({
+          id: masseur.id,
+          name: masseur.name,
+          avatar: masseur.image || null,
+        })) || [],
+        customFields: service.customOptions?.map((option: any) => ({
+          id: option.id,
+          bodyPart: option.bodyPart,
+          customDuration: option.customDuration,
+          customPrice: option.customPrice,
+        })) || [],
         customOptions: undefined,
       };
+
+      return formattedService;
     });
 
     return NextResponse.json(formattedServices);
@@ -195,10 +188,10 @@ export async function POST(request: Request) {
       if (data.customFields && data.customFields.length > 0) {
         await Promise.all(
           data.customFields.map((field: any) =>
-            tx.serviceCustomOption.create({
+            prisma.serviceCustomOption.create({
               data: {
                 serviceId: service.id,
-                bodyPart: field.bodyPart || null,
+                bodyPart: field.bodyPart,
                 customDuration: field.customDuration ? parseInt(field.customDuration) : null,
                 customPrice: field.customPrice ? parseFloat(field.customPrice) : null,
               },
@@ -258,13 +251,12 @@ export async function POST(request: Request) {
       if (data.areaPrices?.length > 0) {
         await Promise.all(
           data.areaPrices.map((areaPrice: any) =>
-            tx.serviceAreaPrice.create({
+            prisma.serviceAreaPrice.create({
               data: {
                 serviceId: service.id,
-                area: areaPrice.area,
+                areaName: areaPrice.areaName,
                 price: parseFloat(areaPrice.price),
                 gender: areaPrice.gender || null,
-                description: areaPrice.description || null,
               },
             })
           )
@@ -311,12 +303,12 @@ export async function POST(request: Request) {
       if (data.packageOptions?.length > 0) {
         await Promise.all(
           data.packageOptions.map(async (option: any) => {
-            const packageOption = await tx.packageOption.create({
+            const packageOption = await prisma.packageOption.create({
               data: {
-                serviceId: service.id,
                 name: option.name,
                 description: option.description || null,
                 maxSelections: option.maxSelections || 1,
+                packageId: service.id
               },
             });
             
@@ -324,12 +316,10 @@ export async function POST(request: Request) {
             if (option.items?.length > 0) {
               await Promise.all(
                 option.items.map((item: any) =>
-                  tx.optionItem.create({
+                  prisma.optionItem.create({
                     data: {
                       name: item.name,
-                      packageOption: {
-                        connect: { id: packageOption.id }
-                      }
+                      packageOptionId: packageOption.id
                     }
                   })
                 )
@@ -407,10 +397,10 @@ export async function PUT(request: Request) {
           if (data.customFields.length > 0) {
             await Promise.all(
               data.customFields.map((field: any) =>
-                tx.serviceCustomOption.create({
+                prisma.serviceCustomOption.create({
                   data: {
                     serviceId: data.id,
-                    bodyPart: field.bodyPart || null,
+                    bodyPart: field.bodyPart,
                     customDuration: field.customDuration ? parseInt(field.customDuration) : null,
                     customPrice: field.customPrice ? parseFloat(field.customPrice) : null,
                   },
