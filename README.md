@@ -6,6 +6,23 @@
 
 伊林SPA預約系統是一個專為SPA和按摩服務設計的全功能預約管理平台。本系統協助店家管理按摩師資源、服務項目和客戶預約，提供簡潔直觀的用戶界面，優化預約流程並提升客戶體驗。
 
+## 📚 文檔導航
+
+### 核心文檔
+- [系統架構說明](docs/core/architecture.md)
+- [資料庫設計](docs/core/database.md)
+
+### 開發文檔
+- [安裝與設置指南](docs/development/setup.md)
+- [開發規範](docs/development/coding-rules.md)
+- [文檔管理規則](docs/development/documentation-rules.md)
+
+### 部署文檔
+- [Vercel 部署指南](docs/deployment/vercel.md)
+
+### 功能文檔
+- [自定義選項功能](docs/services/custom-options.md)
+
 > 此版本已從特定Git提交(db4b7d8e388e20d7c4b5171bd377f1eb97a72077)恢復。上次更新時間：`2025-03-06`
 
 ## 📋 目錄
