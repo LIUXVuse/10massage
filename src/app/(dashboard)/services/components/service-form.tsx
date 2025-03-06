@@ -24,23 +24,45 @@ import { Gender, GenderPrice, AreaPrice, AddonOption, CustomOption } from "@/typ
 
 // 表單數據型別
 interface ServiceFormData {
+  id?: string;
   name: string;
   description?: string;
   type: "SINGLE" | "COMBO";
-  category?: string;
-  durations: { id?: string; duration: number; price: number }[];
-  customOptions: CustomOption[];
-  masseursIds?: string[];
+  category: "MASSAGE" | "CARE" | "TREATMENT";
+  isRecommended?: boolean;
+  isRecommend?: boolean;
+  recommendOrder?: number;
+  // 期間限定相關字段
   isLimitedTime?: boolean;
-  limitedTimeStart?: Date;
-  limitedTimeEnd?: Date;
-  limitedSpecialPrice?: number;
-  limitedDiscountPercent?: number;
-  limitedNote?: string;
+  limitedStartDate?: string | null;
+  limitedEndDate?: string | null;
+  limitedSpecialPrice?: number | null;
+  limitedDiscountPercent?: number | null;
+  limitedNote?: string | null;
+  // 快閃方案相關字段
   isFlashSale?: boolean;
-  flashSaleStart?: Date;
-  flashSaleEnd?: Date;
-  flashSaleNote?: string;
+  flashSaleNote?: string | null;
+  // 關聯字段
+  durations: Array<{
+    id?: string;
+    duration: number;
+    price: number;
+  }>;
+  masseurs?: Array<{
+    id?: string;
+    name?: string;
+    masseur?: {
+      id: string;
+      name: string;
+    };
+  }>;
+  masseursIds?: string[];
+  customOptions: Array<{
+    id?: string;
+    bodyPart?: string;
+    customDuration?: number;
+    customPrice?: number;
+  }>;
   active?: boolean;
   genderPrices?: GenderPrice[];
   areaPrices?: AreaPrice[];
@@ -52,7 +74,7 @@ const formSchema = z.object({
   name: z.string().min(1, { message: "請輸入服務名稱" }),
   description: z.string().optional(),
   type: z.enum(["SINGLE", "COMBO"]),
-  category: z.string().optional(),
+  category: z.enum(["MASSAGE", "CARE", "TREATMENT"]),
   durations: z.array(
     z.object({
       id: z.string().optional(),
@@ -76,14 +98,12 @@ const formSchema = z.object({
   ),
   masseursIds: z.array(z.string()).optional(),
   isLimitedTime: z.boolean().optional(),
-  limitedTimeStart: z.date().optional(),
-  limitedTimeEnd: z.date().optional(),
+  limitedStartDate: z.string().optional(),
+  limitedEndDate: z.string().optional(),
   limitedSpecialPrice: z.number().min(0).optional(),
   limitedDiscountPercent: z.number().min(0).max(100).optional(),
   limitedNote: z.string().optional(),
   isFlashSale: z.boolean().optional(),
-  flashSaleStart: z.date().optional(),
-  flashSaleEnd: z.date().optional(),
   flashSaleNote: z.string().optional(),
   active: z.boolean().optional(),
   genderPrices: z.array(z.object({
@@ -209,20 +229,18 @@ export function ServiceForm({
       name: service?.name || "",
       description: service?.description || "",
       type: service?.type || "SINGLE",
-      category: service?.category || "",
+      category: service?.category || "MASSAGE",
       durations: service?.durations || [{ duration: 60, price: 0 }],
       customOptions: service?.customOptions || [],
       masseursIds: service?.masseursIds || [],
       isLimitedTime: service?.isLimitedTime || false,
-      limitedTimeStart: service?.limitedTimeStart,
-      limitedTimeEnd: service?.limitedTimeEnd,
-      limitedSpecialPrice: service?.limitedSpecialPrice,
-      limitedDiscountPercent: service?.limitedDiscountPercent,
-      limitedNote: service?.limitedNote || "",
+      limitedStartDate: service?.limitedStartDate || null,
+      limitedEndDate: service?.limitedEndDate || null,
+      limitedSpecialPrice: service?.limitedSpecialPrice || null,
+      limitedDiscountPercent: service?.limitedDiscountPercent || null,
+      limitedNote: service?.limitedNote || null,
       isFlashSale: service?.isFlashSale || false,
-      flashSaleStart: service?.flashSaleStart,
-      flashSaleEnd: service?.flashSaleEnd,
-      flashSaleNote: service?.flashSaleNote || "",
+      flashSaleNote: service?.flashSaleNote || null,
       active: service?.active ?? true,
       genderPrices: service?.genderPrices || [],
       areaPrices: service?.areaPrices || [],
@@ -292,13 +310,12 @@ export function ServiceForm({
 
   // 限時優惠狀態
   const isLimitedTime = form.watch("isLimitedTime");
-  const limitedTimeStart = form.watch("limitedTimeStart");
-  const limitedTimeEnd = form.watch("limitedTimeEnd");
+  const limitedStartDate = form.watch("limitedStartDate");
+  const limitedEndDate = form.watch("limitedEndDate");
   
   // 限時閃購狀態
   const isFlashSale = form.watch("isFlashSale");
-  const flashSaleStart = form.watch("flashSaleStart");
-  const flashSaleEnd = form.watch("flashSaleEnd");
+  const flashSaleNote = form.watch("flashSaleNote");
 
   // 處理服務類型變更，重置相關欄位
   useEffect(() => {
@@ -358,42 +375,35 @@ export function ServiceForm({
 
     // 檢查限時優惠邏輯
     if (data.isLimitedTime) {
-      if (!data.limitedTimeStart || !data.limitedTimeEnd) {
+      if (!data.limitedStartDate || !data.limitedEndDate) {
         // 處理錯誤：限時優惠需要開始和結束時間
         alert("限時優惠需要設定開始和結束時間");
         return;
       }
-      if (data.limitedTimeEnd < data.limitedTimeStart) {
+      if (data.limitedEndDate < data.limitedStartDate) {
         // 處理錯誤：結束時間不能早於開始時間
         alert("限時優惠結束時間不能早於開始時間");
         return;
       }
     } else {
       // 如果不是限時優惠，清除相關字段
-      data.limitedTimeStart = undefined;
-      data.limitedTimeEnd = undefined;
-      data.limitedSpecialPrice = undefined;
-      data.limitedDiscountPercent = undefined;
-      data.limitedNote = undefined;
+      data.limitedStartDate = null;
+      data.limitedEndDate = null;
+      data.limitedSpecialPrice = null;
+      data.limitedDiscountPercent = null;
+      data.limitedNote = null;
     }
 
     // 檢查閃購邏輯
     if (data.isFlashSale) {
-      if (!data.flashSaleStart || !data.flashSaleEnd) {
+      if (!data.flashSaleNote) {
         // 處理錯誤：閃購需要開始和結束時間
         alert("限時閃購需要設定開始和結束時間");
         return;
       }
-      if (data.flashSaleEnd < data.flashSaleStart) {
-        // 處理錯誤：結束時間不能早於開始時間
-        alert("限時閃購結束時間不能早於開始時間");
-        return;
-      }
     } else {
       // 如果不是閃購，清除相關字段
-      data.flashSaleStart = undefined;
-      data.flashSaleEnd = undefined;
-      data.flashSaleNote = undefined;
+      data.flashSaleNote = null;
     }
 
     // 提交數據
@@ -437,7 +447,7 @@ export function ServiceForm({
               <select
                 id="category"
                 value={form.watch("category") || ""}
-                onChange={(e) => form.setValue("category", e.target.value)}
+                onChange={(e) => form.setValue("category", e.target.value as "MASSAGE" | "CARE" | "TREATMENT")}
                 className="w-full p-2 border rounded-md"
               >
                 <option value="">請選擇分類</option>
@@ -721,12 +731,12 @@ export function ServiceForm({
                           <Button
                             variant="outline"
                             className={`w-full justify-start text-left font-normal ${
-                              !limitedTimeStart && "text-muted-foreground"
+                              !limitedStartDate && "text-muted-foreground"
                             }`}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {limitedTimeStart ? (
-                              format(limitedTimeStart, "yyyy-MM-dd")
+                            {limitedStartDate ? (
+                              format(new Date(limitedStartDate), "yyyy-MM-dd")
                             ) : (
                               <span>選擇日期</span>
                             )}
@@ -735,8 +745,8 @@ export function ServiceForm({
                         <PopoverContent className="w-auto p-0">
                           <Calendar
                             mode="single"
-                            selected={limitedTimeStart}
-                            onSelect={(date) => form.setValue("limitedTimeStart", date)}
+                            selected={limitedStartDate ? new Date(limitedStartDate) : undefined}
+                            onSelect={(date) => form.setValue("limitedStartDate", date ? date.toISOString().split('T')[0] : null)}
                             initialFocus
                           />
                         </PopoverContent>
@@ -752,12 +762,12 @@ export function ServiceForm({
                           <Button
                             variant="outline"
                             className={`w-full justify-start text-left font-normal ${
-                              !limitedTimeEnd && "text-muted-foreground"
+                              !limitedEndDate && "text-muted-foreground"
                             }`}
                           >
                             <CalendarIcon className="mr-2 h-4 w-4" />
-                            {limitedTimeEnd ? (
-                              format(limitedTimeEnd, "yyyy-MM-dd")
+                            {limitedEndDate ? (
+                              format(new Date(limitedEndDate), "yyyy-MM-dd")
                             ) : (
                               <span>選擇日期</span>
                             )}
@@ -766,8 +776,8 @@ export function ServiceForm({
                         <PopoverContent className="w-auto p-0">
                           <Calendar
                             mode="single"
-                            selected={limitedTimeEnd}
-                            onSelect={(date) => form.setValue("limitedTimeEnd", date)}
+                            selected={limitedEndDate ? new Date(limitedEndDate) : undefined}
+                            onSelect={(date) => form.setValue("limitedEndDate", date ? date.toISOString().split('T')[0] : null)}
                             initialFocus
                           />
                         </PopoverContent>
@@ -836,70 +846,6 @@ export function ServiceForm({
 
             {isFlashSale && (
               <div className="space-y-4 border-l-2 border-red-300 pl-4 mt-2">
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <Label>開始時間</Label>
-                    <div className="mt-1">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={`w-full justify-start text-left font-normal ${
-                              !flashSaleStart && "text-muted-foreground"
-                            }`}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {flashSaleStart ? (
-                              format(flashSaleStart, "yyyy-MM-dd")
-                            ) : (
-                              <span>選擇日期</span>
-                            )}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={flashSaleStart}
-                            onSelect={(date) => form.setValue("flashSaleStart", date)}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-
-                  <div>
-                    <Label>結束時間</Label>
-                    <div className="mt-1">
-                      <Popover>
-                        <PopoverTrigger asChild>
-                          <Button
-                            variant="outline"
-                            className={`w-full justify-start text-left font-normal ${
-                              !flashSaleEnd && "text-muted-foreground"
-                            }`}
-                          >
-                            <CalendarIcon className="mr-2 h-4 w-4" />
-                            {flashSaleEnd ? (
-                              format(flashSaleEnd, "yyyy-MM-dd")
-                            ) : (
-                              <span>選擇日期</span>
-                            )}
-                          </Button>
-                        </PopoverTrigger>
-                        <PopoverContent className="w-auto p-0">
-                          <Calendar
-                            mode="single"
-                            selected={flashSaleEnd}
-                            onSelect={(date) => form.setValue("flashSaleEnd", date)}
-                            initialFocus
-                          />
-                        </PopoverContent>
-                      </Popover>
-                    </div>
-                  </div>
-                </div>
-
                 <div>
                   <Label htmlFor="flashSaleNote">閃購說明</Label>
                   <Textarea

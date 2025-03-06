@@ -57,6 +57,46 @@ interface Masseur {
   name: string;
 }
 
+interface ServiceData {
+  id?: string;
+  name: string;
+  description?: string;
+  type: "SINGLE" | "COMBO";
+  category: "MASSAGE" | "CARE" | "TREATMENT";
+  isRecommend?: boolean;
+  recommendOrder?: number;
+  // 期間限定相關字段
+  isLimitedTime?: boolean;
+  limitedStartDate?: string | null;
+  limitedEndDate?: string | null;
+  limitedSpecialPrice?: number | null;
+  limitedDiscountPercent?: number | null;
+  limitedNote?: string | null;
+  // 快閃方案相關字段
+  isFlashSale?: boolean;
+  flashSaleNote?: string | null;
+  // 關聯字段
+  durations?: Array<{
+    id?: string;
+    duration: number;
+    price: number;
+  }>;
+  masseurs?: Array<{
+    id?: string;
+    name?: string;
+    masseur?: {
+      id: string;
+      name: string;
+    };
+  }>;
+  customOptions?: Array<{
+    id?: string;
+    bodyPart?: string;
+    customDuration?: number;
+    customPrice?: number;
+  }>;
+}
+
 const categoryLabels = {
   MASSAGE: "按摩",
   CARE: "護理",
@@ -107,7 +147,7 @@ export default function ServicesPage() {
       console.log("獲取到的服務數據:", data.length, "條記錄");
       
       // 檢查和轉換數據格式
-      const formattedServices = data.map(service => {
+      const formattedServices = data.map((service: ServiceData) => {
         // 確保所有必要屬性存在
         return {
           id: service.id || "",
@@ -130,7 +170,7 @@ export default function ServicesPage() {
           flashSaleNote: service.flashSaleNote,
           // 確保durations是數組
           durations: Array.isArray(service.durations) 
-            ? service.durations.map(d => ({
+            ? service.durations.map((d: { id?: string; duration: number; price: number }) => ({
                 id: d.id || "",
                 duration: d.duration || 0,
                 price: d.price || 0
@@ -138,16 +178,16 @@ export default function ServicesPage() {
             : [],
           // 確保masseurs是數組並轉換格式
           masseurs: Array.isArray(service.masseurs) 
-            ? service.masseurs.map(m => ({
+            ? service.masseurs.map((m: { id?: string; name?: string; masseur?: { id: string; name: string } }) => ({
                 masseur: {
-                  id: m.id || "",
-                  name: m.name || ""
+                  id: m.masseur?.id || m.id || "",
+                  name: m.masseur?.name || m.name || ""
                 }
               }))
             : [],
           // 處理自定義選項
           customOptions: Array.isArray(service.customOptions)
-            ? service.customOptions.map(option => ({
+            ? service.customOptions.map((option: { id?: string; bodyPart?: string; customDuration?: number; customPrice?: number }) => ({
                 id: option.id || "",
                 bodyPart: option.bodyPart || "",
                 customDuration: option.customDuration || 0,
@@ -278,7 +318,7 @@ export default function ServicesPage() {
 
   if (isEditing) {
     // 轉換服務數據格式以適應表單組件的需求
-    const initialData = selectedService
+    const serviceData = selectedService
       ? {
           ...selectedService,
           isRecommended: selectedService.isRecommend, // 使用正確的屬性名
@@ -302,7 +342,7 @@ export default function ServicesPage() {
           </Button>
         </div>
         <ServiceForm
-          initialData={initialData}
+          service={serviceData}
           masseurs={masseurs}
           onSubmit={handleSubmit}
         />
