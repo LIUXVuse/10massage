@@ -441,32 +441,6 @@ export function ServiceForm({
                 placeholder="請輸入服務描述"
               />
             </div>
-
-            <div>
-              <Label htmlFor="category">服務分類</Label>
-              <select
-                id="category"
-                value={form.watch("category") || ""}
-                onChange={(e) => form.setValue("category", e.target.value as "MASSAGE" | "CARE" | "TREATMENT")}
-                className="w-full p-2 border rounded-md"
-              >
-                <option value="">請選擇分類</option>
-                {categories.map((category) => (
-                  <option key={category} value={category}>
-                    {category}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            <div className="flex items-center space-x-2">
-              <Switch
-                id="active"
-                checked={form.watch("active") || false}
-                onCheckedChange={(checked) => form.setValue("active", checked)}
-              />
-              <Label htmlFor="active">啟用此服務</Label>
-            </div>
           </div>
         </CardContent>
       </Card>
