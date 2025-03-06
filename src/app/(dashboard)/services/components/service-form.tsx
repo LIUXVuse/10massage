@@ -550,7 +550,11 @@ export function ServiceForm({
               </div>
             </CardContent>
           </Card>
+        </div>
+      )}
 
+      {serviceType === "COMBO" && (
+        <div className="space-y-6">
           {/* 自定義選項卡片 */}
           <Card className="border rounded-lg p-4">
             <CardHeader className="px-0 pt-0">
@@ -606,6 +610,25 @@ export function ServiceForm({
               </div>
             </CardContent>
           </Card>
+
+          {/* 附加選項卡片 */}
+          <Card className="border rounded-lg p-4">
+            <CardHeader className="px-0 pt-0">
+              <CardTitle className="text-lg font-semibold">附加選項</CardTitle>
+              <p className="text-sm text-gray-500">添加可選的服務附加項目</p>
+            </CardHeader>
+            <CardContent className="px-0 pb-0">
+              <ServiceAddonOptions 
+                addonOptions={(form.watch("addons") || []).map(addon => ({
+                  ...addon,
+                  description: addon.description || undefined
+                }))}
+                onChange={(options: AddonOption[]) => {
+                  form.setValue("addons", options);
+                }}
+              />
+            </CardContent>
+          </Card>
         </div>
       )}
       
@@ -651,27 +674,6 @@ export function ServiceForm({
                   price: p.price,
                   gender: p.gender
                 })));
-              }}
-            />
-          </CardContent>
-        </Card>
-      )}
-      
-      {/* 附加項目 - 針對標準服務和性別定價服務 */}
-      {(serviceType === "SINGLE" || serviceType === "GENDER_PRICING") && (
-        <Card className="border rounded-lg p-4">
-          <CardHeader className="px-0 pt-0">
-            <CardTitle className="text-lg font-semibold">附加選項</CardTitle>
-            <p className="text-sm text-gray-500">添加可選的服務附加項目</p>
-          </CardHeader>
-          <CardContent className="px-0 pb-0">
-            <ServiceAddonOptions 
-              addonOptions={(form.watch("addons") || []).map(addon => ({
-                ...addon,
-                description: addon.description || undefined
-              }))}
-              onChange={(options: AddonOption[]) => {
-                form.setValue("addons", options);
               }}
             />
           </CardContent>
