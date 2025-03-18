@@ -56,7 +56,7 @@ export default function DashboardLayout({
                 {t("nav.masseurs", language)}
               </Link>
               <Link
-                href="/services"
+                href="/manage-services"
                 className="transition-colors hover:text-amber-600 text-gray-700 font-medium"
               >
                 {t("nav.services", language)}

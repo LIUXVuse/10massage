@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { ServiceForm } from "@/app/(dashboard)/services/components/service-form";
+import { ServiceForm } from "@/app/(dashboard)/manage-services/components/service-form";
 import { Button } from "@/components/ui/button";
 import { Plus, Pencil, Trash2, Clock, Zap } from "lucide-react";
 import { Badge } from "@/components/ui/badge";

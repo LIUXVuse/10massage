@@ -38,7 +38,7 @@ export default function DashboardPage() {
 
         <div 
           className="p-6 bg-white rounded-lg shadow-sm border border-amber-100 cursor-pointer hover:shadow-md transition-shadow hover:border-amber-300"
-          onClick={() => router.push("/services")}
+          onClick={() => router.push("/manage-services")}
         >
           <div className="flex items-center mb-3">
             <span className="text-amber-600 text-2xl mr-3">🧖</span>

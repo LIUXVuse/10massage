@@ -15,15 +15,17 @@ function normalizePath(path: string): string {
   return path;
 }
 
-// 定義需要保護的路由
+// 需要管理員權限的路由
 const adminRoutes = [
-  '/api/masseurs/create',
-  '/api/masseurs/update',
-  '/api/masseurs/delete',
+  '/admin',
+  '/users',
+  '/manage-services',
   '/api/services/create',
   '/api/services/update',
   '/api/services/delete',
-  '/admin'
+  '/api/masseurs/create',
+  '/api/masseurs/update',
+  '/api/masseurs/delete'
 ]
 
 // 具體的管理頁面路由，需要額外檢查
@@ -33,6 +35,7 @@ const strictAdminPageRoutes = [
   '/users'
 ]
 
+// 按摩師專屬路由
 const masseurRoutes = [
   '/masseur/profile'
   // 將來可以添加按摩師專屬路由
@@ -41,19 +44,7 @@ const masseurRoutes = [
 // 可以自由訪問的API路由
 const publicApiRoutes = [
   '/api/masseurs',
-  '/api/services',
-  '/api/admin/init-accounts',
-  '/api/admin/init-test-accounts',
-  '/api/admin/init-masseurs',
-  '/init', // 添加初始化頁面到公開路由
-  // 添加其他必要的公開路由
-  '/',
-  '/login',
-  '/register',
-  // 添加更多公共路徑
-  '/favicon.ico',
-  '/_next',
-  '/api/auth'
+  '/api/services'
 ]
 
 // 檢查用戶是否為管理員 - 與auth-utils統一邏輯
@@ -200,21 +191,24 @@ export default async function middleware(request: NextRequestWithAuth) {
   }
 }
 
+// 路由權限配置
 export const config = {
   matcher: [
-    /*
-     * 匹配所有需要保護的路由:
-     * - API路由 (/api/*)，除了公開API
-     * - 管理員路由 (/admin/*, /dashboard/*)
-     * - 按摩師路由 (/masseur/*)
-     * - 頁面路由 (/masseurs, /services, /users)
-     */
-    '/api/:path*',
+    // 需要管理員權限的路由
     '/admin/:path*',
-    '/dashboard/:path*',
+    '/users/:path*',
+    '/manage-services/:path*',
+    '/api/services/:path*',
+    '/api/masseurs/:path*',
+    
+    // 需要按摩師或管理員權限的路由
     '/masseur/:path*',
-    '/masseurs/:path*',
-    '/services/:path*',
-    '/users/:path*'
-  ],
-}; 
+    
+    // 需要用戶登錄的路由
+    '/appointments/:path*',
+    '/profile/:path*',
+    
+    // API路由
+    '/api/:path*'
+  ]
+} 
