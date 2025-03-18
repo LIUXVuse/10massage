@@ -30,7 +30,13 @@ export async function GET(req: Request) {
       }
     });
     
-    return NextResponse.json(masseurs);
+    // 處理圖片URL映射
+    const masseursWithImageUrl = masseurs.map(masseur => ({
+      ...masseur,
+      imageUrl: masseur.image // 將數據庫中的image屬性映射到前端使用的imageUrl
+    }));
+    
+    return NextResponse.json(masseursWithImageUrl);
   } catch (error) {
     console.error("获取按摩师列表失败:", error);
     return NextResponse.json(

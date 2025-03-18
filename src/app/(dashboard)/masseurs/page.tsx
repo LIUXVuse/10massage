@@ -99,7 +99,11 @@ function SortableMasseurCard({
         {masseur.imageUrl ? (
           <div className="relative w-full h-full">
             <Image
-              src={masseur.imageUrl.startsWith('http') ? masseur.imageUrl : `${process.env.NEXT_PUBLIC_API_URL}${masseur.imageUrl}`}
+              src={masseur.imageUrl.startsWith('http') 
+                ? masseur.imageUrl 
+                : masseur.imageUrl.includes('/uploads/') 
+                  ? masseur.imageUrl 
+                  : `/uploads/${masseur.imageUrl.split('/').pop() || masseur.imageUrl}`}
               alt={masseur.name}
               fill
               style={{
@@ -117,10 +121,9 @@ function SortableMasseurCard({
                 console.error("圖片載入錯誤", {
                   masseurId: masseur.id,
                   imageUrl: masseur.imageUrl,
-                  error: e
                 });
-                // 當圖片載入失敗時，將圖片源設置為備用圖片
-                (e.target as HTMLImageElement).src = '/images/placeholder-masseur.jpg';
+                // 使用專用的佔位圖片
+                (e.target as HTMLImageElement).src = '/images/placeholder-masseur.svg';
               }}
             />
           </div>
