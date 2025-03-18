@@ -10,6 +10,7 @@ import { redirect } from "next/navigation";
 import { isAdmin } from "@/lib/auth/auth-utils";
 import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
+import { GenderPrice, AreaPrice, AddonOption } from "@/types/service";
 
 interface Service {
   id: string;
@@ -46,9 +47,20 @@ interface Service {
   }>;
   customOptions: Array<{
     id: string;
-    bodyPart: string;
-    customDuration: number;
-    customPrice: number;
+    bodyPart: string | null;
+    customDuration: number | null;
+    customPrice: number | null;
+  }>;
+  packageItems: Array<{
+    id: string;
+    duration: number;
+    customDuration: number | null;
+    customPrice: number | null;
+    service: {
+      id: string;
+      name: string;
+      description: string | null;
+    };
   }>;
 }
 
@@ -89,12 +101,28 @@ interface ServiceData {
       name: string;
     };
   }>;
+  masseursIds?: string[];
   customOptions?: Array<{
     id?: string;
     bodyPart?: string;
     customDuration?: number;
     customPrice?: number;
   }>;
+  packageItems?: Array<{
+    id?: string;
+    duration: number;
+    customDuration?: number;
+    customPrice?: number;
+    service: {
+      id: string;
+      name: string;
+      description?: string;
+    };
+  }>;
+  active?: boolean;
+  genderPrices?: GenderPrice[];
+  areaPrices?: AreaPrice[];
+  addons?: AddonOption[];
 }
 
 interface ServiceFormData {
@@ -128,6 +156,21 @@ interface ServiceFormData {
     customDuration?: number;
     customPrice?: number;
   }>;
+  packageItems?: Array<{
+    id?: string;
+    duration: number;
+    customDuration?: number;
+    customPrice?: number;
+    service: {
+      id: string;
+      name: string;
+      description?: string;
+    };
+  }>;
+  active?: boolean;
+  genderPrices?: GenderPrice[];
+  areaPrices?: AreaPrice[];
+  addons?: AddonOption[];
 }
 
 const categoryLabels = {
@@ -220,11 +263,25 @@ export default function ServicesPage() {
             : [],
           // 處理自定義選項
           customOptions: Array.isArray(service.customOptions)
-            ? service.customOptions.map((option: { id?: string; bodyPart?: string; customDuration?: number; customPrice?: number }) => ({
+            ? service.customOptions.map((option: any) => ({
                 id: option.id || "",
                 bodyPart: option.bodyPart || "",
-                customDuration: option.customDuration || 0,
-                customPrice: option.customPrice || 0
+                customDuration: option.customDuration || undefined,
+                customPrice: option.customPrice || undefined
+              }))
+            : [],
+          // 處理套餐項目
+          packageItems: Array.isArray(service.packageItems)
+            ? service.packageItems.map((item: any) => ({
+                id: item.id || "",
+                duration: item.duration || 0,
+                customDuration: item.customDuration || undefined,
+                customPrice: item.customPrice || undefined,
+                service: {
+                  id: item.service?.id || "",
+                  name: item.service?.name || "",
+                  description: item.service?.description || ""
+                }
               }))
             : []
         };
@@ -466,6 +523,42 @@ export default function ServicesPage() {
               ))}
             </div>
 
+            {/* 套餐項目 */}
+            {service.type === "COMBO" && service.packageItems && service.packageItems.length > 0 && (
+              <div className="mt-3">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">套餐包含：</h4>
+                <div className="space-y-2">
+                  {service.packageItems.map((item) => (
+                    <div key={item.id} className="flex items-center text-sm">
+                      <span className="text-gray-600">
+                        {item.service.name} ({item.duration}分鐘)
+                        {item.customDuration && ` - 自訂時長: ${item.customDuration}分鐘`}
+                        {item.customPrice && ` - 自訂價格: NT$${item.customPrice}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* 自定義選項 */}
+            {service.customOptions && service.customOptions.length > 0 && (
+              <div className="mt-3">
+                <h4 className="text-sm font-medium text-gray-700 mb-2">自定義選項：</h4>
+                <div className="space-y-2">
+                  {service.customOptions.map((option) => (
+                    <div key={option.id} className="flex items-center text-sm">
+                      <span className="text-gray-600">
+                        {option.bodyPart}
+                        {option.customDuration && ` - ${option.customDuration}分鐘`}
+                        {option.customPrice && ` - NT$${option.customPrice}`}
+                      </span>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
             {/* 按摩師列表 */}
             {service.masseurs && service.masseurs.length > 0 && (
               <div className="mt-3">
@@ -513,8 +606,27 @@ export default function ServicesPage() {
               service={selectedService ? {
                 ...selectedService,
                 durations: selectedService.durations || [],
-                masseurs: selectedService.masseurs || [],
-                customOptions: selectedService.customOptions || []
+                masseurs: selectedService.masseurs.map(m => ({
+                  id: m.id || "",
+                  name: m.name
+                })),
+                customOptions: selectedService.customOptions?.map(option => ({
+                  id: option.id,
+                  bodyPart: option.bodyPart || "",
+                  customDuration: option.customDuration,
+                  customPrice: option.customPrice
+                })) || [],
+                packageItems: selectedService.packageItems?.map(item => ({
+                  id: item.id,
+                  duration: item.duration,
+                  customDuration: item.customDuration,
+                  customPrice: item.customPrice,
+                  service: {
+                    id: item.service.id,
+                    name: item.service.name,
+                    description: item.service.description || ""
+                  }
+                }))
               } : undefined}
               masseurs={masseurs}
               onSubmit={handleSubmit}

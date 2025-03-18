@@ -47,6 +47,18 @@ export async function GET(req: Request) {
             image: true,
             sortOrder: true
           }
+        },
+        customOptions: true,
+        packageItems: {
+          include: {
+            service: {
+              select: {
+                id: true,
+                name: true,
+                description: true
+              }
+            }
+          }
         }
       },
       orderBy: {

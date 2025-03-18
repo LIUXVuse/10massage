@@ -63,6 +63,17 @@ interface ServiceFormData {
     customDuration?: number;
     customPrice?: number;
   }>;
+  packageItems?: Array<{
+    id?: string;
+    duration: number;
+    customDuration?: number;
+    customPrice?: number;
+    service: {
+      id: string;
+      name: string;
+      description?: string;
+    };
+  }>;
   active?: boolean;
   genderPrices?: GenderPrice[];
   areaPrices?: AreaPrice[];
