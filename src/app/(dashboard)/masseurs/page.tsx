@@ -107,10 +107,8 @@ function SortableMasseurCard({
               alt={masseur.name}
               fill
               style={{
-                objectFit: masseur.imageScale ? 'cover' : 'contain',
-                objectPosition: masseur.cropX && masseur.cropY 
-                  ? `${masseur.cropX}% ${masseur.cropY}%` 
-                  : 'center',
+                objectFit: 'contain',
+                objectPosition: 'center',
                 backgroundColor: '#f3f4f6'
               }}
               sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
@@ -281,32 +279,40 @@ export default function MasseursPage() {
     const { active, over } = event
     
     if (over && active.id !== over.id) {
-      setMasseurs((items) => {
-        const oldIndex = items.findIndex((item) => item.id === active.id)
-        const newIndex = items.findIndex((item) => item.id === over.id)
-        
-        toast({
-          title: "正在更新排序",
-          description: "正在保存新的按摩師排序...",
-          duration: 2000
-        })
-        
-        return arrayMove(items, oldIndex, newIndex)
+      // 先獲取移動前後的索引
+      const oldIndex = masseurs.findIndex((item) => item.id === active.id)
+      const newIndex = masseurs.findIndex((item) => item.id === over.id)
+      
+      // 創建新的排序後的按摩師列表
+      const newSortedItems = arrayMove(masseurs, oldIndex, newIndex)
+      
+      // 更新狀態
+      setMasseurs(newSortedItems)
+      
+      toast({
+        title: "正在更新排序",
+        description: "正在保存新的按摩師排序...",
+        duration: 2000
       })
       
-      await saveNewOrder()
+      // 立即保存新順序
+      await saveNewOrder(newSortedItems)
     }
   }
   
-  const saveNewOrder = async () => {
+  const saveNewOrder = async (items = masseurs) => {
     if (!userIsAdmin) return
     
     setIsSavingOrder(true)
     try {
-      const masseurOrders = masseurs.map((masseur, index) => ({
+      console.log("保存新排序:", items.map(m => m.name))
+      
+      const masseurOrders = items.map((masseur, index) => ({
         id: masseur.id,
         order: index + 1
       }))
+      
+      console.log("發送排序數據:", masseurOrders)
       
       const response = await fetch("/api/masseurs", {
         method: "PATCH",
@@ -314,8 +320,11 @@ export default function MasseursPage() {
         body: JSON.stringify({ masseurOrders })
       })
       
+      const responseData = await response.json()
+      console.log("排序保存響應:", responseData)
+      
       if (!response.ok) {
-        throw new Error("更新排序失敗")
+        throw new Error("更新排序失敗: " + (responseData.error || '未知錯誤'))
       }
       
       toast({

@@ -60,32 +60,61 @@ export async function PATCH(request: Request) {
       return NextResponse.json({ error: '未授權訪問，僅管理員可以更新按摩師排序' }, { status: 403 });
     }
     
-    const { masseurOrders } = await request.json();
+    const requestData = await request.json();
+    console.log('收到排序更新請求數據:', requestData);
+    
+    const { masseurOrders } = requestData;
     
     // 驗證輸入
     if (!Array.isArray(masseurOrders)) {
-      return NextResponse.json({ error: '無效的請求數據' }, { status: 400 });
+      console.error('無效的排序數據:', masseurOrders);
+      return NextResponse.json({ error: '無效的請求數據，masseurOrders必須是陣列' }, { status: 400 });
     }
     
+    // 檢查陣列內容是否符合預期
+    if (masseurOrders.length === 0) {
+      console.error('空的排序陣列');
+      return NextResponse.json({ error: '排序陣列不能為空' }, { status: 400 });
+    }
+    
+    console.log('準備更新以下按摩師排序:', masseurOrders);
+    
     // 使用 Prisma 事務批量更新按摩師的排序欄位
-    const updates = masseurOrders.map(({ id, order }: { id: string, order: number }) => {
-      return prisma.masseur.update({
-        where: { id },
-        data: { 
-          sortOrder: order // 直接更新 sortOrder 欄位而不是使用時間戳
-        } as any
+    try {
+      const updates = masseurOrders.map(({ id, order }: { id: string, order: number }) => {
+        if (!id) {
+          throw new Error(`排序更新缺少ID: ${JSON.stringify({ id, order })}`);
+        }
+        console.log(`更新按摩師 ID: ${id} 的排序為: ${order}`);
+        return db.masseur.update({
+          where: { id },
+          data: { 
+            sortOrder: order // 直接更新 sortOrder 欄位
+          }
+        });
       });
-    });
-    
-    await prisma.$transaction(updates);
-    
-    // 添加更多日誌方便排查問題
-    console.log('按摩師排序已更新:', masseurOrders);
-    
-    return NextResponse.json({ success: true, message: '按摩師排序已更新' });
+      
+      const results = await db.$transaction(updates);
+      console.log('按摩師排序更新結果:', results.map(r => ({ id: r.id, sortOrder: r.sortOrder })));
+      
+      return NextResponse.json({ 
+        success: true, 
+        message: '按摩師排序已更新',
+        updatedCount: results.length 
+      });
+    } catch (dbError) {
+      console.error('資料庫更新操作失敗:', dbError);
+      return NextResponse.json({ 
+        error: '資料庫更新失敗', 
+        details: dbError instanceof Error ? dbError.message : '未知錯誤' 
+      }, { status: 500 });
+    }
   } catch (error) {
     console.error('更新按摩師排序時發生錯誤:', error);
-    return NextResponse.json({ error: '更新按摩師排序失敗' }, { status: 500 });
+    return NextResponse.json({ 
+      error: '更新按摩師排序失敗',
+      details: error instanceof Error ? error.message : '未知錯誤'
+    }, { status: 500 });
   }
 }
 
