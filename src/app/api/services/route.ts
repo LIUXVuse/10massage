@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { getServerSession } from 'next-auth';
 import { getAuthOptions } from '@/lib/auth/auth.server';
+import { db } from "@/lib/db";
 
 // 支持Node.js運行時
 export const runtime = 'nodejs';
@@ -20,124 +21,35 @@ async function isAdmin() {
 }
 
 // 獲取服務列表
-export async function GET(request: Request) {
+export async function GET(req: Request) {
   try {
-    const { searchParams } = new URL(request.url);
-    const id = searchParams.get("id");
-    const isPublic = searchParams.get("public");
-    const active = searchParams.get("active");
-    const category = searchParams.get("category");
-    const details = searchParams.get("details");
-    const withInactive = searchParams.get("withInactive");
-
-    // 根據查詢參數構建查詢條件
-    let where: any = {};
+    const { searchParams } = new URL(req.url);
+    const activeOnly = searchParams.get("active") === "true";
     
-    // 如果指定了ID，則查詢特定服務
-    if (id) {
-      where.id = id;
-    }
+    // 构建查询条件
+    const where: any = {};
     
-    // 如果指定了分類，則按分類過濾
-    if (category) {
-      where.category = category;
-    }
-    
-    // 如果要求活躍服務或公開服務，則只返回活躍的
-    if (active === "true" || isPublic === "true") {
+    // 如果只查询激活的服务
+    if (activeOnly) {
       where.isActive = true;
     }
     
-    // 如果不是特別要求包含非活躍服務，則只返回活躍的
-    if (withInactive !== "true" && active !== "false") {
-      where.isActive = true;
-    }
-
-    // 對於公開API請求，篩選僅當前有效的限時優惠和閃購服務
-    if (isPublic === "true") {
-      const now = new Date();
-      
-      // 使用OR條件：常規服務 或 當前有效的限時優惠 或 當前有效的閃購
-      where.OR = [
-        // 常規服務 (非限時優惠且非閃購)
-        {
-          isLimitedTime: false,
-          isFlashSale: false,
-        },
-        // 當前有效的限時優惠
-        {
-          isLimitedTime: true,
-          limitedStartDate: { lte: now },
-          limitedEndDate: { gte: now },
-        },
-        // 當前有效的閃購
-        {
-          isFlashSale: true,
-          flashSaleStart: { lte: now },
-          flashSaleEnd: { gte: now },
-        },
-      ];
-    }
-
-    // 構建包含標準關聯的查詢
-    const include: any = {
-      durations: true,
-      masseurs: true,
-      customOptions: true,
-    };
-    
-    // 如果需要詳細資訊，則添加額外的關聯
-    if (details === "true") {
-      include.genderPrices = true;
-      include.areaPrices = true;
-      include.addons = true;
-      include.packageItems = true;
-    }
-
-    // 執行查詢
-    const services = await prisma.service.findMany({
+    // 获取服务列表，包括时长选项
+    const services = await db.service.findMany({
       where,
-      include,
-      orderBy: {
-        createdAt: "desc",
+      include: {
+        durations: true
       },
+      orderBy: {
+        createdAt: "desc"
+      }
     });
-
-    // 如果查詢特定ID但找不到結果，則返回404
-    if (id && services.length === 0) {
-      return NextResponse.json(
-        { error: "找不到指定服務" },
-        { status: 404 }
-      );
-    }
-
-    // 轉換結果為前端友好格式
-    const formattedServices = services.map((service) => {
-      // 格式化服務對象
-      const formattedService = {
-        ...service,
-        masseurs: service.masseurs?.map((masseur: any) => ({
-          id: masseur.id,
-          name: masseur.name,
-          avatar: masseur.image || null,
-        })) || [],
-        customFields: service.customOptions?.map((option: any) => ({
-          id: option.id,
-          bodyPart: option.bodyPart,
-          customDuration: option.customDuration,
-          customPrice: option.customPrice,
-        })) || [],
-        customOptions: undefined,
-      };
-
-      return formattedService;
-    });
-
-    return NextResponse.json(formattedServices);
+    
+    return NextResponse.json(services);
   } catch (error) {
-    console.error("獲取服務失敗:", error);
+    console.error("获取服务列表失败:", error);
     return NextResponse.json(
-      { error: "獲取服務時發生錯誤" },
+      { error: "获取服务列表失败" },
       { status: 500 }
     );
   }

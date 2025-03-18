@@ -10,9 +10,9 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 
 const registerSchema = z.object({
-  name: z.string().min(2, "姓名至少需要2個字元"),
-  email: z.string().email("請輸入有效的電子郵件"),
-  password: z.string().min(6, "密碼至少需要6個字元"),
+  name: z.string().min(2, "姓名至少需要2个字符"),
+  email: z.string().email("请输入有效的电子邮箱"),
+  password: z.string().min(6, "密码至少需要6个字符"),
   phone: z.string().optional(),
 })
 
@@ -51,7 +51,7 @@ export function RegisterForm() {
 
       router.push("/login?registered=true")
     } catch (error) {
-      setError(error instanceof Error ? error.message : "註冊時發生錯誤")
+      setError(error instanceof Error ? error.message : "注册时发生错误")
     } finally {
       setIsLoading(false)
     }
@@ -69,6 +69,7 @@ export function RegisterForm() {
           autoCorrect="off"
           disabled={isLoading}
           {...register("name")}
+          className="border-amber-200 focus:border-amber-500 focus:ring-amber-500"
         />
         {errors?.name && (
           <p className="text-sm text-red-500">{errors.name.message}</p>
@@ -84,6 +85,7 @@ export function RegisterForm() {
           autoCorrect="off"
           disabled={isLoading}
           {...register("email")}
+          className="border-amber-200 focus:border-amber-500 focus:ring-amber-500"
         />
         {errors?.email && (
           <p className="text-sm text-red-500">{errors.email.message}</p>
@@ -92,11 +94,12 @@ export function RegisterForm() {
       <div className="space-y-2">
         <Input
           id="password"
-          placeholder="請輸入密碼"
+          placeholder="请输入密码"
           type="password"
           autoComplete="new-password"
           disabled={isLoading}
           {...register("password")}
+          className="border-amber-200 focus:border-amber-500 focus:ring-amber-500"
         />
         {errors?.password && (
           <p className="text-sm text-red-500">{errors.password.message}</p>
@@ -105,19 +108,24 @@ export function RegisterForm() {
       <div className="space-y-2">
         <Input
           id="phone"
-          placeholder="電話號碼（選填）"
+          placeholder="电话号码（选填）"
           type="tel"
           autoComplete="tel"
           disabled={isLoading}
           {...register("phone")}
+          className="border-amber-200 focus:border-amber-500 focus:ring-amber-500"
         />
         {errors?.phone && (
           <p className="text-sm text-red-500">{errors.phone.message}</p>
         )}
       </div>
       {error && <p className="text-sm text-red-500">{error}</p>}
-      <Button type="submit" className="w-full" disabled={isLoading}>
-        {isLoading ? "註冊中..." : "註冊"}
+      <Button 
+        type="submit" 
+        className="w-full bg-amber-600 hover:bg-amber-700" 
+        disabled={isLoading}
+      >
+        {isLoading ? "注册中..." : "注册"}
       </Button>
     </form>
   )

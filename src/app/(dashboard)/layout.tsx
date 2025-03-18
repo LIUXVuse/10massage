@@ -5,6 +5,9 @@ import { useRouter } from "next/navigation"
 import { useSession, signOut } from "next-auth/react"
 import { Button } from "@/components/ui/button"
 import { isAdmin } from "@/lib/auth/auth-utils"
+import { useLanguage } from "@/context/language-context"
+import { t } from "@/lib/translations"
+import LanguageSwitcher from "@/components/language-switcher"
 
 export default function DashboardLayout({
   children,
@@ -13,10 +16,15 @@ export default function DashboardLayout({
 }) {
   const router = useRouter()
   const { data: session, status } = useSession()
+  const { language } = useLanguage()
   const userIsAdmin = isAdmin(session);
 
   if (status === "loading") {
-    return <div>載入中...</div>
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        {t("app.loading", language)}...
+      </div>
+    )
   }
 
   if (status === "unauthenticated") {
@@ -25,65 +33,87 @@ export default function DashboardLayout({
   }
 
   return (
-    <div className="min-h-screen bg-background">
-      <header className="sticky top-0 z-50 w-full border-b bg-background/95 backdrop-blur supports-[backdrop-filter]:bg-background/60">
-        <div className="container flex h-14 items-center justify-between">
+    <div className="min-h-screen bg-amber-50">
+      <header className="sticky top-0 z-50 w-full border-b bg-white shadow-sm">
+        <div className="container flex h-16 items-center justify-between">
           <div className="flex items-center gap-6 md:gap-10">
             <Link href="/dashboard" className="flex items-center space-x-2">
-              <span className="font-bold">伊林SPA</span>
+              <span className="font-bold text-amber-800 text-xl">
+                {t("app.name", language)}
+              </span>
             </Link>
-            <nav className="flex gap-6">
+            <nav className="hidden md:flex gap-6">
               <Link
                 href="/dashboard"
-                className="transition-colors hover:text-foreground/80 text-foreground"
+                className="transition-colors hover:text-amber-600 text-gray-700 font-medium"
               >
-                儀表板
+                {t("nav.dashboard", language)}
               </Link>
               <Link
                 href="/masseurs"
-                className="transition-colors hover:text-foreground/80 text-foreground"
+                className="transition-colors hover:text-amber-600 text-gray-700 font-medium"
               >
-                查看按摩師
+                {t("nav.masseurs", language)}
               </Link>
               <Link
                 href="/services"
-                className="transition-colors hover:text-foreground/80 text-foreground"
+                className="transition-colors hover:text-amber-600 text-gray-700 font-medium"
               >
-                服務項目
+                {t("nav.services", language)}
               </Link>
               {userIsAdmin && (
-                <Link
-                  href="/users"
-                  className="transition-colors hover:text-foreground/80 text-foreground"
-                >
-                  用戶管理
-                </Link>
+                <>
+                  <Link
+                    href="/users"
+                    className="transition-colors hover:text-amber-600 text-gray-700 font-medium"
+                  >
+                    {t("nav.userManagement", language)}
+                  </Link>
+                  <Link
+                    href="/admin"
+                    className="transition-colors hover:text-amber-600 text-gray-700 font-medium"
+                  >
+                    {t("nav.systemManagement", language)}
+                  </Link>
+                </>
               )}
             </nav>
           </div>
-          <div className="flex items-center gap-2">
-            <span className="text-sm text-muted-foreground">
-              {session?.user?.name} ({session?.user?.role?.toUpperCase() === "ADMIN" ? "管理員" : 
-                                     session?.user?.role?.toUpperCase() === "MASSEUR" ? "按摩師" : "會員"})
+          <div className="flex items-center gap-4">
+            <LanguageSwitcher />
+            <span className="text-sm text-gray-600 hidden md:inline-block">
+              {session?.user?.name} (
+              {session?.user?.role?.toUpperCase() === "ADMIN" 
+                ? t("role.admin", language) 
+                : session?.user?.role?.toUpperCase() === "MASSEUR" 
+                ? t("role.masseur", language) 
+                : t("role.member", language)
+              })
             </span>
             <Button
-              variant="ghost"
+              variant="outline"
+              className="border-amber-200 text-amber-800 hover:bg-amber-100 hover:text-amber-900"
               onClick={() => {
                 signOut({ 
                   callbackUrl: "/login",
                   redirect: true
                 }).catch(err => {
-                  console.error("登出時發生錯誤:", err);
+                  console.error(`${t("error.logoutFailed", language)}:`, err);
                   window.location.href = "/login";
                 });
               }}
             >
-              登出
+              {t("auth.logout", language)}
             </Button>
           </div>
         </div>
       </header>
-      <main className="container py-6">{children}</main>
+      <main className="container py-8">{children}</main>
+      <footer className="bg-amber-800 text-white py-6 mt-auto">
+        <div className="container text-center">
+          <p>© 2023 {t("app.name", language)}. {t("footer.copyright", language)}</p>
+        </div>
+      </footer>
     </div>
   )
 } 

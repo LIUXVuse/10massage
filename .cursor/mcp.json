@@ -1,0 +1,26 @@
+{
+  "mcpServers": {
+    "neon": {
+      "command": "cmd",
+      "args": ["/c", "mcp-server-neon", "start", "napi_1rh3uer3z84dqkqznvbu3kj16ci132md8ybydnt3tvk4oq42is06djeb89gagmku"]
+    },
+    "@21st-dev-magic-mcp": {
+      "command": "C:\\Windows\\System32\\cmd.exe",
+      "args": [
+        "/c", "npx","-y",
+        "@smithery/cli@latest",
+        "run",
+        "@21st-dev/magic-mcp",
+        "--config",
+        "\"{\\\"TWENTY_FIRST_API_KEY\\\":\\\"a0a4ed190afa7a0a79f62c1bf69a655f1cf5e12793ace92f34656b8484b5a6aa\\\"}\""
+      ]
+    },
+    "browser-tools": {
+      "command": "C:\\Windows\\System32\\cmd.exe",
+      "args": [
+        "/c", "npx", "-y", "@agentdeskai/browser-tools-mcp@1.2.0"
+      ],
+      "enabled": true
+    }
+  }
+}

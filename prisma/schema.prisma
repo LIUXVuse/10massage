@@ -9,36 +9,38 @@ datasource db {
 }
 
 model User {
-  id            String    @id @default(cuid())
+  id            String        @id @default(cuid())
   name          String?
-  email         String?   @unique
+  email         String?       @unique
   password      String
   phone         String?
   emailVerified DateTime?
   image         String?
-  role          String    @default("user")
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @updatedAt
+  role          String        @default("user")
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @updatedAt
+  appointments  Appointment[]
 }
 
 model Masseur {
-  id          String    @id @default(cuid())
-  name        String
-  image       String?
-  imageScale  Float?    @default(1.0)
-  imageX      Float?    @default(0.0)
-  imageY      Float?    @default(0.0)
-  cropX       Float?
-  cropY       Float?
-  cropWidth   Float?
-  cropHeight  Float?
-  description String?
-  experience  Int       @default(0)
-  isActive    Boolean   @default(true)
-  sortOrder   Int       @default(999)
-  createdAt   DateTime  @default(now())
-  updatedAt   DateTime  @updatedAt
-  services    Service[] @relation("MasseurToService")
+  id           String        @id @default(cuid())
+  name         String
+  image        String?
+  imageScale   Float?        @default(1.0)
+  imageX       Float?        @default(0.0)
+  imageY       Float?        @default(0.0)
+  cropX        Float?
+  cropY        Float?
+  cropWidth    Float?
+  cropHeight   Float?
+  description  String?
+  experience   Int           @default(0)
+  isActive     Boolean       @default(true)
+  sortOrder    Int           @default(999)
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  services     Service[]     @relation("MasseurToService")
+  appointments Appointment[]
 }
 
 model Service {
@@ -69,16 +71,18 @@ model Service {
   genderPrices           ServiceGenderPrice[]
   masseurs               Masseur[]            @relation("MasseurToService")
   customOptions          CustomOption[]
+  appointments           Appointment[]
 }
 
 model ServiceDuration {
-  id        String   @id @default(cuid())
-  duration  Int
-  price     Float
-  serviceId String
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
-  service   Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  id           String        @id @default(cuid())
+  duration     Int
+  price        Float
+  serviceId    String
+  createdAt    DateTime      @default(now())
+  updatedAt    DateTime      @updatedAt
+  service      Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+  appointments Appointment[]
 }
 
 model ServiceGenderPrice {
@@ -178,6 +182,30 @@ model CustomOption {
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   service        Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
+}
+
+// 預約模型
+model Appointment {
+  id                String          @id @default(cuid())
+  userId            String
+  user              User            @relation(fields: [userId], references: [id])
+  serviceId         String
+  service           Service         @relation(fields: [serviceId], references: [id])
+  serviceDurationId String
+  serviceDuration   ServiceDuration @relation(fields: [serviceDurationId], references: [id])
+  masseurId         String
+  masseur           Masseur         @relation(fields: [masseurId], references: [id])
+  date              String          // YYYY-MM-DD 格式
+  time              String          // HH:MM 格式
+  status            String          @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW
+  notes             String?
+  createdAt         DateTime        @default(now())
+  updatedAt         DateTime        @updatedAt
+
+  @@index([userId])
+  @@index([masseurId])
+  @@index([date])
+  @@index([status])
 }
 
 enum Gender {

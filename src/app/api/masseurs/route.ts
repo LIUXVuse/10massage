@@ -2,53 +2,41 @@ import { NextResponse } from 'next/server';
 import { prisma } from '@/lib/db/prisma';
 import { getToken } from 'next-auth/jwt';
 import { NextApiRequest } from 'next';
+import { db } from "@/lib/db";
 
 // 支持Cloudflare Pages和Prisma
 export const runtime = 'nodejs'; // 從'edge'改為'nodejs'，以支持Prisma
 export const revalidate = 3600; // 每小時重新驗證一次
 
 // 獲取按摩師列表 - 公開API，所有用戶可以訪問
-export async function GET() {
+export async function GET(req: Request) {
   try {
-    // 使用Prisma查詢按摩師列表，包括其服務項目和用戶信息
-    const masseurs = await prisma.masseur.findMany({
-      include: {
-        services: true
-      },
-      orderBy: [
-        // 使用 sortOrder 欄位作為主要排序依據，然後再按照 createdAt 降序排序
-        { sortOrder: 'asc' } as any,
-        { createdAt: 'desc' as const }
-      ]
+    const { searchParams } = new URL(req.url);
+    const activeOnly = searchParams.get("active") === "true";
+    
+    // 构建查询条件
+    const where: any = {};
+    
+    // 如果只查询激活的按摩师
+    if (activeOnly) {
+      where.isActive = true;
+    }
+    
+    // 获取按摩师列表
+    const masseurs = await db.masseur.findMany({
+      where,
+      orderBy: {
+        sortOrder: "asc"
+      }
     });
-
-    // 將數據庫中的image字段映射到前端使用的imageUrl，並包含所有裁剪參數
-    const masseursMapped = masseurs.map(masseur => {
-      // 記錄完整信息用於調試
-      console.log('獲取按摩師原始數據:', masseur);
-      
-      // 返回所有數據，包括裁剪參數（如果存在）
-      const mappedMasseur = {
-        ...masseur,
-        imageUrl: masseur.image,
-        // 確保這些欄位具有預設值，以防資料庫中沒有這些值
-        imageScale: (masseur as any).imageScale || 1,
-        cropX: (masseur as any).cropX || 0,
-        cropY: (masseur as any).cropY || 0,
-        cropWidth: (masseur as any).cropWidth || 300,
-        cropHeight: (masseur as any).cropHeight || 225
-      };
-      
-      console.log('前端使用的按摩師數據:', mappedMasseur);
-      
-      return mappedMasseur;
-    });
-
-    // 返回按摩師列表
-    return NextResponse.json(masseursMapped);
+    
+    return NextResponse.json(masseurs);
   } catch (error) {
-    console.error('獲取按摩師列表時發生錯誤:', error);
-    return NextResponse.json({ error: '獲取按摩師列表失敗' }, { status: 500 });
+    console.error("获取按摩师列表失败:", error);
+    return NextResponse.json(
+      { error: "获取按摩师列表失败" },
+      { status: 500 }
+    );
   }
 }
 
