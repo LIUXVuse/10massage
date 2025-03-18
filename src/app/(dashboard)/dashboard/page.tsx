@@ -7,11 +7,11 @@ import { Button } from "@/components/ui/button"
 export default function DashboardPage() {
   const router = useRouter()
   const { data: session } = useSession()
-  const userName = session?.user?.name || "用户"
+  const userName = session?.user?.name || "使用者"
 
   return (
     <div className="p-4">
-      <h1 className="text-3xl font-bold mb-8 text-amber-800">欢迎回来，{userName}</h1>
+      <h1 className="text-3xl font-bold mb-8 text-amber-800">歡迎回來，{userName}</h1>
       
       <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
         <div 
@@ -20,9 +20,9 @@ export default function DashboardPage() {
         >
           <div className="flex items-center mb-3">
             <span className="text-amber-600 text-2xl mr-3">📅</span>
-            <h2 className="text-xl font-semibold">我的预约</h2>
+            <h2 className="text-xl font-semibold">我的預約</h2>
           </div>
-          <p className="text-gray-600">查看和管理您的预约记录</p>
+          <p className="text-gray-600">查看和管理您的預約記錄</p>
         </div>
 
         <div 
@@ -31,9 +31,9 @@ export default function DashboardPage() {
         >
           <div className="flex items-center mb-3">
             <span className="text-amber-600 text-2xl mr-3">👤</span>
-            <h2 className="text-xl font-semibold">个人资料</h2>
+            <h2 className="text-xl font-semibold">個人資料</h2>
           </div>
-          <p className="text-gray-600">更新您的个人信息</p>
+          <p className="text-gray-600">更新您的個人資訊</p>
         </div>
 
         <div 
@@ -42,9 +42,9 @@ export default function DashboardPage() {
         >
           <div className="flex items-center mb-3">
             <span className="text-amber-600 text-2xl mr-3">🧖</span>
-            <h2 className="text-xl font-semibold">服务项目</h2>
+            <h2 className="text-xl font-semibold">服務項目</h2>
           </div>
-          <p className="text-gray-600">浏览可预约的服务项目</p>
+          <p className="text-gray-600">瀏覽可預約的服務項目</p>
         </div>
 
         <div 
@@ -53,9 +53,9 @@ export default function DashboardPage() {
         >
           <div className="flex items-center mb-3">
             <span className="text-amber-600 text-2xl mr-3">👐</span>
-            <h2 className="text-xl font-semibold">按摩师</h2>
+            <h2 className="text-xl font-semibold">按摩師</h2>
           </div>
-          <p className="text-gray-600">查看按摩师信息</p>
+          <p className="text-gray-600">查看按摩師資訊</p>
         </div>
       </div>
     </div>

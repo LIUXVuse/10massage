@@ -97,36 +97,33 @@ function SortableMasseurCard({
 
       <div className="relative h-40 w-full rounded-md overflow-hidden mb-3">
         {masseur.imageUrl ? (
-          <>
+          <div className="relative w-full h-full">
             <Image
-              src={masseur.imageUrl}
+              src={masseur.imageUrl.startsWith('http') ? masseur.imageUrl : `${process.env.NEXT_PUBLIC_API_URL}${masseur.imageUrl}`}
               alt={masseur.name}
               fill
               style={{
-                objectFit: 'contain',
+                objectFit: masseur.imageScale ? 'cover' : 'contain',
+                objectPosition: masseur.cropX && masseur.cropY 
+                  ? `${masseur.cropX}% ${masseur.cropY}%` 
+                  : 'center',
                 backgroundColor: '#f3f4f6'
               }}
+              sizes="(max-width: 768px) 100vw, (max-width: 1200px) 50vw, 33vw"
               className="transition-all duration-300"
               priority={true}
               loading="eager"
-              onLoad={(e) => {
-                console.log("圖片載入完成", {
-                  masseurId: masseur.id,
-                  name: masseur.name,
-                  imageUrl: masseur.imageUrl,
-                  naturalWidth: (e.target as HTMLImageElement).naturalWidth,
-                  naturalHeight: (e.target as HTMLImageElement).naturalHeight
-                });
-              }}
               onError={(e) => {
                 console.error("圖片載入錯誤", {
                   masseurId: masseur.id,
                   imageUrl: masseur.imageUrl,
                   error: e
                 });
+                // 當圖片載入失敗時，將圖片源設置為備用圖片
+                (e.target as HTMLImageElement).src = '/images/placeholder-masseur.jpg';
               }}
             />
-          </>
+          </div>
         ) : (
           <div className="flex items-center justify-center h-full bg-gray-100">
             <span className="text-gray-400">無圖片</span>
