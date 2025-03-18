@@ -97,6 +97,39 @@ interface ServiceData {
   }>;
 }
 
+interface ServiceFormData {
+  id?: string;
+  name: string;
+  description?: string;
+  type: "SINGLE" | "COMBO";
+  category: "MASSAGE" | "CARE" | "TREATMENT";
+  isRecommend?: boolean;
+  recommendOrder?: number;
+  isLimitedTime?: boolean;
+  limitedStartDate?: string | null;
+  limitedEndDate?: string | null;
+  limitedSpecialPrice?: number | null;
+  limitedDiscountPercent?: number | null;
+  limitedNote?: string | null;
+  isFlashSale?: boolean;
+  flashSaleNote?: string | null;
+  durations: Array<{
+    id?: string;
+    duration: number;
+    price: number;
+  }>;
+  masseurs: Array<{
+    id: string;
+    name?: string;
+  }>;
+  customOptions: Array<{
+    id?: string;
+    bodyPart?: string;
+    customDuration?: number;
+    customPrice?: number;
+  }>;
+}
+
 const categoryLabels = {
   MASSAGE: "按摩",
   CARE: "護理",
@@ -178,11 +211,11 @@ export default function ServicesPage() {
             : [],
           // 確保masseurs是數組並轉換格式
           masseurs: Array.isArray(service.masseurs) 
-            ? service.masseurs.map((m: { id?: string; name?: string; masseur?: { id: string; name: string } }) => ({
-                masseur: {
-                  id: m.masseur?.id || m.id || "",
-                  name: m.masseur?.name || m.name || ""
-                }
+            ? service.masseurs.map((m: any) => ({
+                id: m.id || "",
+                name: m.name || "",
+                imageUrl: m.imageUrl || m.image || "",
+                description: m.description || ""
               }))
             : [],
           // 處理自定義選項
@@ -316,6 +349,12 @@ export default function ServicesPage() {
     return a.name.localeCompare(b.name);
   });
 
+  // 添加 onCancel 處理函數
+  const handleCancel = () => {
+    setIsEditing(false);
+    setSelectedService(null);
+  };
+
   if (isEditing) {
     // 轉換服務數據格式以適應表單組件的需求
     const serviceData = selectedService
@@ -323,7 +362,7 @@ export default function ServicesPage() {
           ...selectedService,
           isRecommended: selectedService.isRecommend, // 使用正確的屬性名
           masseurs: selectedService.masseurs.map((m) => ({
-            id: m.masseur?.id || m.id || "",
+            id: m.id || "",
           })),
         }
       : undefined;
@@ -342,21 +381,22 @@ export default function ServicesPage() {
           </Button>
         </div>
         <ServiceForm
-          service={serviceData}
+          service={serviceData as ServiceFormData}
           masseurs={masseurs}
           onSubmit={handleSubmit}
+          onCancel={handleCancel}
         />
       </div>
     );
   }
 
   return (
-    <div className="container mx-auto p-6">
+    <div className="container mx-auto py-6">
       <div className="flex justify-between items-center mb-6">
-        <h1 className="text-2xl font-bold">服務管理</h1>
+        <h1 className="text-3xl font-bold">服務管理</h1>
         {userIsAdmin && (
-          <Button onClick={() => setIsEditing(true)}>
-            <Plus className="mr-2 h-4 w-4" /> 新增服務
+          <Button onClick={() => setIsEditing(true)} className="bg-green-600 hover:bg-green-700">
+            <Plus className="w-4 h-4 mr-2" /> 新增服務
           </Button>
         )}
       </div>
@@ -402,129 +442,85 @@ export default function ServicesPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {sortedServices.map((service) => (
-          <div
-            key={service.id}
-            className="border rounded-lg overflow-hidden shadow-sm hover:shadow-md transition-shadow"
-          >
-            <div className="p-4">
-              <div className="flex justify-between items-start">
-                <h2 className="text-xl font-semibold">{service.name}</h2>
-                <div className="flex space-x-2">
-                  {userIsAdmin && (
-                    <>
-                      <button
-                        onClick={() => handleEdit(service)}
-                        className="text-blue-500 hover:text-blue-700"
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        onClick={() => handleDelete(service.id)}
-                        className="text-red-500 hover:text-red-700"
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </>
-                  )}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+        {getFilteredServices().map((service) => (
+          <div key={service.id} className="bg-white p-4 rounded-lg shadow">
+            <div className="flex justify-between items-start mb-2">
+              <h3 className="font-semibold text-lg">{service.name}</h3>
+              <Badge className={categoryColors[service.category]}>
+                {categoryLabels[service.category]}
+              </Badge>
+            </div>
+            
+            <p className="text-sm text-gray-600 mb-3">
+              {service.description || "無描述"}
+            </p>
+
+            {/* 時長和價格 */}
+            <div className="space-y-2 mb-3">
+              {service.durations.map((duration) => (
+                <div key={duration.id} className="flex items-center text-sm">
+                  <Clock className="w-4 h-4 mr-2 text-gray-400" />
+                  <span>{duration.duration} 分鐘 - NT${duration.price}</span>
                 </div>
-              </div>
+              ))}
+            </div>
 
-              <div className="flex flex-wrap gap-2 mt-2">
-                <Badge className={categoryColors[service.category]}>
-                  {categoryLabels[service.category]}
-                </Badge>
-                
-                {service.isRecommend && (
-                  <Badge variant="outline" className="border-yellow-400 text-yellow-700 bg-yellow-50">
-                    推薦服務
-                  </Badge>
-                )}
-                
-                {service.isLimitedTime && (
-                  <Badge variant="outline" className="border-purple-400 text-purple-700 bg-purple-50 flex items-center">
-                    <Clock className="h-3 w-3 mr-1" />
-                    期間限定
-                  </Badge>
-                )}
-                
-                {service.isFlashSale && (
-                  <Badge variant="outline" className="border-red-400 text-red-700 bg-red-50 flex items-center">
-                    <Zap className="h-3 w-3 mr-1" />
-                    快閃方案
-                  </Badge>
-                )}
-              </div>
-
-              {/* 期間限定日期與價格顯示 */}
-              {service.isLimitedTime && service.limitedStartDate && service.limitedEndDate && (
-                <div className="mt-2 space-y-1">
-                  <div className="text-sm text-gray-600">
-                    限定期間: {format(new Date(service.limitedStartDate), 'yyyy/MM/dd', { locale: zhTW })} 至 {format(new Date(service.limitedEndDate), 'yyyy/MM/dd', { locale: zhTW })}
-                  </div>
-                  
-                  {service.limitedSpecialPrice ? (
-                    <div className="flex items-center">
-                      <span className="text-red-600 font-bold">特價: NT${service.limitedSpecialPrice}</span>
-                      {service.durations[0] && (
-                        <span className="text-gray-400 line-through ml-2">原價: NT${service.durations[0].price}</span>
-                      )}
-                    </div>
-                  ) : service.limitedDiscountPercent ? (
-                    <div className="text-red-600 font-bold">折扣: {service.limitedDiscountPercent}% OFF</div>
-                  ) : null}
-                  
-                  {service.limitedNote && (
-                    <div className="text-sm text-gray-600">{service.limitedNote}</div>
-                  )}
-                </div>
-              )}
-              
-              {/* 快閃方案日期顯示 */}
-              {service.isFlashSale && service.limitedStartDate && service.limitedEndDate && (
-                <div className="mt-2 space-y-1">
-                  <div className="text-sm text-gray-600">
-                    快閃期間: {format(new Date(service.limitedStartDate), 'yyyy/MM/dd', { locale: zhTW })} 至 {format(new Date(service.limitedEndDate), 'yyyy/MM/dd', { locale: zhTW })}
-                  </div>
-                  
-                  {service.flashSaleNote && (
-                    <div className="text-sm text-gray-600">{service.flashSaleNote}</div>
-                  )}
-                </div>
-              )}
-
-              <p className="text-gray-600 mt-2">{service.description}</p>
-
+            {/* 按摩師列表 */}
+            {service.masseurs && service.masseurs.length > 0 && (
               <div className="mt-3">
-                <h3 className="font-medium">時長與價格:</h3>
-                <div className="mt-1 space-y-1">
-                  {service.durations.map((d) => (
-                    <div key={d.id} className="text-sm">
-                      {d.duration} 分鐘 - NT${d.price}
-                    </div>
-                  ))}
-                </div>
-              </div>
-
-              <div className="mt-3">
-                <h3 className="font-medium">按摩師:</h3>
-                <div className="flex flex-wrap gap-1 mt-1">
-                  {service.masseurs.map((m) => (
-                    <Badge key={m.masseur?.id || m.id} variant="secondary">
-                      {m.masseur?.name || m.name}
+                <h4 className="text-sm font-medium text-gray-700 mb-2">提供服務的按摩師：</h4>
+                <div className="flex flex-wrap gap-2">
+                  {service.masseurs.map((masseur) => (
+                    <Badge key={masseur.id} variant="outline" className="flex items-center gap-1">
+                      {masseur.name}
                     </Badge>
                   ))}
                 </div>
               </div>
-            </div>
+            )}
+
+            {/* 管理按鈕 */}
+            {userIsAdmin && (
+              <div className="flex justify-end gap-2 mt-4 pt-3 border-t">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleEdit(service)}
+                  className="text-blue-600 hover:text-blue-700"
+                >
+                  <Pencil className="w-4 h-4 mr-1" /> 編輯
+                </Button>
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => handleDelete(service.id)}
+                  className="text-red-600 hover:text-red-700"
+                >
+                  <Trash2 className="w-4 h-4 mr-1" /> 刪除
+                </Button>
+              </div>
+            )}
           </div>
         ))}
       </div>
 
-      {sortedServices.length === 0 && (
-        <div className="text-center py-10 text-gray-500">
-          尚無服務資料
+      {/* 編輯表單對話框 */}
+      {isEditing && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
+          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
+            <ServiceForm
+              service={selectedService ? {
+                ...selectedService,
+                durations: selectedService.durations || [],
+                masseurs: selectedService.masseurs || [],
+                customOptions: selectedService.customOptions || []
+              } : undefined}
+              masseurs={masseurs}
+              onSubmit={handleSubmit}
+              onCancel={handleCancel}
+            />
+          </div>
         </div>
       )}
     </div>

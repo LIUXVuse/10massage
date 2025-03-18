@@ -34,18 +34,36 @@ export async function GET(req: Request) {
       where.isActive = true;
     }
     
-    // 获取服务列表，包括时长选项
+    // 获取服务列表，包括时长选项和按摩師
     const services = await db.service.findMany({
       where,
       include: {
-        durations: true
+        durations: true,
+        masseurs: {
+          select: {
+            id: true,
+            name: true,
+            description: true,
+            image: true,
+            sortOrder: true
+          }
+        }
       },
       orderBy: {
         createdAt: "desc"
       }
     });
     
-    return NextResponse.json(services);
+    // 處理返回數據，確保按摩師圖片URL正確
+    const processedServices = services.map(service => ({
+      ...service,
+      masseurs: service.masseurs.map(masseur => ({
+        ...masseur,
+        imageUrl: masseur.image // 將 image 字段映射為 imageUrl
+      }))
+    }));
+    
+    return NextResponse.json(processedServices);
   } catch (error) {
     console.error("获取服务列表失败:", error);
     return NextResponse.json(

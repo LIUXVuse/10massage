@@ -197,6 +197,7 @@ const CustomOptionCard = ({
 interface ServiceFormProps {
   service?: ServiceFormData;
   onSubmit: (data: ServiceFormData) => void;
+  onCancel: () => void;
   masseurs?: {
     id: string;
     name: string;
@@ -212,7 +213,8 @@ interface ServiceFormProps {
 // 服務表單組件
 export function ServiceForm({ 
   service, 
-  onSubmit, 
+  onSubmit,
+  onCancel,
   masseurs = [], 
   categories = [],
   availableServices = []
