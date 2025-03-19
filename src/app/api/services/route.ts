@@ -35,7 +35,7 @@ export async function GET(req: Request) {
     }
     
     // 获取服务列表，包括时长选项和按摩師
-    const services = await db.service.findMany({
+    const services = await prisma.service.findMany({
       where,
       include: {
         durations: true,
@@ -61,19 +61,25 @@ export async function GET(req: Request) {
           }
         }
       },
-      orderBy: {
-        createdAt: "desc"
-      }
+      orderBy: [
+        { sortOrder: 'asc' },
+        { createdAt: 'desc' }
+      ]
     });
     
     // 處理返回數據，確保按摩師圖片URL正確
-    const processedServices = services.map(service => ({
-      ...service,
-      masseurs: service.masseurs.map(masseur => ({
+    const processedServices = services.map(service => {
+      // 將按摩師image字段映射到imageUrl
+      const masseursWithImageUrl = service.masseurs ? service.masseurs.map((masseur: any) => ({
         ...masseur,
-        imageUrl: masseur.image // 將 image 字段映射為 imageUrl
-      }))
-    }));
+        imageUrl: masseur.image
+      })) : [];
+      
+      return {
+        ...service,
+        masseurs: masseursWithImageUrl
+      };
+    });
     
     return NextResponse.json(processedServices);
   } catch (error) {

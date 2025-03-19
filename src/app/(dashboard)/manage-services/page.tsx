@@ -11,6 +11,25 @@ import { isAdmin } from "@/lib/auth/auth-utils";
 import { format } from "date-fns";
 import { zhTW } from "date-fns/locale";
 import { GenderPrice, AreaPrice, AddonOption } from "@/types/service";
+import { 
+  DndContext, 
+  closestCenter, 
+  KeyboardSensor, 
+  PointerSensor, 
+  useSensor, 
+  useSensors,
+  DragEndEvent
+} from '@dnd-kit/core';
+import {
+  arrayMove,
+  SortableContext,
+  sortableKeyboardCoordinates,
+  useSortable,
+  verticalListSortingStrategy
+} from '@dnd-kit/sortable';
+import { CSS } from '@dnd-kit/utilities';
+import { GripVertical, Loader2 } from 'lucide-react';
+import { toast } from "@/components/ui/use-toast";
 
 interface Service {
   id: string;
@@ -21,6 +40,7 @@ interface Service {
   isRecommended: boolean;
   isRecommend: boolean; // 後端欄位名稱
   recommendOrder: number;
+  sortOrder: number; // 添加排序順序字段
   // 期間限定相關字段
   isLimitedTime: boolean;
   limitedStartDate: string | null;
@@ -77,6 +97,7 @@ interface ServiceData {
   category: "MASSAGE" | "CARE" | "TREATMENT";
   isRecommend?: boolean;
   recommendOrder?: number;
+  sortOrder?: number; // 添加排序字段
   // 期間限定相關字段
   isLimitedTime?: boolean;
   limitedStartDate?: string | null;
@@ -185,6 +206,123 @@ const categoryColors = {
   TREATMENT: "bg-purple-100 text-purple-800",
 };
 
+// 可排序的服務卡片組件
+function SortableServiceCard({ 
+  service, 
+  userIsAdmin, 
+  onDelete,
+  onEdit 
+}: { 
+  service: Service, 
+  userIsAdmin: boolean,
+  onDelete: (id: string) => void,
+  onEdit: (service: Service) => void
+}) {
+  const {
+    attributes,
+    listeners,
+    setNodeRef,
+    transform,
+    transition,
+    isDragging
+  } = useSortable({ id: service.id });
+
+  const style = {
+    transform: CSS.Transform.toString(transform),
+    transition,
+    zIndex: isDragging ? 10 : 1,
+    opacity: isDragging ? 0.8 : 1,
+  };
+
+  return (
+    <div
+      ref={setNodeRef}
+      style={style}
+      className={`bg-white p-4 rounded-lg shadow relative group ${isDragging ? 'ring-2 ring-primary shadow-lg' : ''}`}
+    >
+      {userIsAdmin && (
+        <div 
+          className="absolute top-2 left-2 cursor-grab opacity-30 group-hover:opacity-100 transition-opacity"
+          {...attributes}
+          {...listeners}
+        >
+          <GripVertical className="h-6 w-6 text-gray-500" />
+        </div>
+      )}
+      
+      <div className="flex justify-between items-start mb-2 pl-8">
+        <h3 className="font-semibold text-lg">{service.name}</h3>
+        <Badge className={categoryColors[service.category]}>
+          {categoryLabels[service.category]}
+        </Badge>
+      </div>
+      
+      <p className="text-sm text-gray-600 mb-3 pl-8">
+        {service.description || "無描述"}
+      </p>
+
+      {/* 時長和價格 */}
+      <div className="space-y-2 mb-3 pl-8">
+        {service.durations.map((duration) => (
+          <div key={duration.id} className="flex items-center text-sm">
+            <Clock className="w-4 h-4 mr-2 text-gray-400" />
+            <span>{duration.duration} 分鐘 - NT${duration.price}</span>
+          </div>
+        ))}
+      </div>
+
+      {/* 套餐項目 */}
+      {service.type === "COMBO" && service.packageItems && service.packageItems.length > 0 && (
+        <div className="mt-3 pl-8">
+          <h4 className="text-sm font-medium text-gray-700 mb-2">套餐包含：</h4>
+          <div className="space-y-2">
+            {service.packageItems.map((item) => (
+              <div key={item.id} className="flex items-center text-sm">
+                <span className="text-gray-600">
+                  {item.service.name} ({item.duration}分鐘)
+                  {item.customDuration && ` - 自訂時長: ${item.customDuration}分鐘`}
+                  {item.customPrice && ` - 自訂價格: NT$${item.customPrice}`}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
+      {/* 推薦、限時和快閃標籤 */}
+      <div className="flex flex-wrap gap-1 mt-3 pl-8">
+        {service.isRecommend && (
+          <span className="inline-flex items-center rounded-full bg-amber-100 px-2.5 py-0.5 text-xs font-medium text-amber-800">
+            推薦
+          </span>
+        )}
+        {service.isLimitedTime && (
+          <span className="inline-flex items-center rounded-full bg-purple-100 px-2.5 py-0.5 text-xs font-medium text-purple-800">
+            期間限定
+          </span>
+        )}
+        {service.isFlashSale && (
+          <span className="inline-flex items-center rounded-full bg-rose-100 px-2.5 py-0.5 text-xs font-medium text-rose-800">
+            <Zap className="w-3 h-3 mr-1" />
+            快閃方案
+          </span>
+        )}
+      </div>
+
+      {userIsAdmin && (
+        <div className="flex justify-end gap-2 mt-3 pt-3 border-t border-gray-100">
+          <Button variant="ghost" size="sm" onClick={() => onEdit(service)}>
+            <Pencil className="h-4 w-4" />
+          </Button>
+          <Button variant="ghost" size="sm" onClick={() => onDelete(service.id)}>
+            <Trash2 className="h-4 w-4" />
+          </Button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function ServicesPage() {
   const { data: session } = useSession({
     required: true,
@@ -203,6 +341,19 @@ export default function ServicesPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [selectedService, setSelectedService] = useState<Service | null>(null);
   const [selectedCategory, setSelectedCategory] = useState<string>("ALL");
+  const [loading, setLoading] = useState(true);
+  const [isSavingOrder, setIsSavingOrder] = useState(false);
+
+  const sensors = useSensors(
+    useSensor(PointerSensor, {
+      activationConstraint: {
+        distance: 5,
+      },
+    }),
+    useSensor(KeyboardSensor, {
+      coordinateGetter: sortableKeyboardCoordinates,
+    })
+  );
 
   useEffect(() => {
     fetchServices();
@@ -211,6 +362,7 @@ export default function ServicesPage() {
 
   const fetchServices = async () => {
     try {
+      setLoading(true);
       console.log("開始獲取服務列表...");
       const response = await fetch("/api/services");
       
@@ -234,6 +386,7 @@ export default function ServicesPage() {
           isRecommended: !!service.isRecommend,
           isRecommend: !!service.isRecommend,
           recommendOrder: service.recommendOrder || 0,
+          sortOrder: service.sortOrder || 999, // 使用API返回的sortOrder或默認值
           // 期間限定相關字段
           isLimitedTime: !!service.isLimitedTime,
           limitedStartDate: service.limitedStartDate,
@@ -289,7 +442,14 @@ export default function ServicesPage() {
       
       setServices(formattedServices);
     } catch (error) {
-      console.error("Error fetching services:", error);
+      console.error("服務列表獲取失敗:", error);
+      toast({
+        title: "錯誤",
+        description: "獲取服務列表失敗",
+        variant: "destructive"
+      });
+    } finally {
+      setLoading(false);
     }
   };
 
@@ -385,9 +545,14 @@ export default function ServicesPage() {
   // 獲取已過濾的服務
   const filteredServices = getFilteredServices();
 
-  // 處理排序: 推薦 > 快閃 > 期間限定 > 正常
+  // 處理排序: 先按sortOrder排序，再按推薦 > 快閃 > 期間限定 > 正常
   const sortedServices = [...filteredServices].sort((a, b) => {
-    // 先按推薦排序
+    // 首先按sortOrder排序
+    if (a.sortOrder !== b.sortOrder) {
+      return a.sortOrder - b.sortOrder;
+    }
+    
+    // 再按推薦排序
     if (a.isRecommend && !b.isRecommend) return -1;
     if (!a.isRecommend && b.isRecommend) return 1;
     if (a.isRecommend && b.isRecommend) {
@@ -410,6 +575,70 @@ export default function ServicesPage() {
   const handleCancel = () => {
     setIsEditing(false);
     setSelectedService(null);
+  };
+
+  const handleDragEnd = async (event: DragEndEvent) => {
+    const { active, over } = event;
+    
+    if (over && active.id !== over.id) {
+      // 先獲取移動前後的索引
+      const oldIndex = services.findIndex((item) => item.id === active.id);
+      const newIndex = services.findIndex((item) => item.id === over.id);
+      
+      // 創建新的排序後的服務列表
+      const newSortedItems = arrayMove(services, oldIndex, newIndex);
+      
+      // 更新狀態
+      setServices(newSortedItems);
+      
+      toast({
+        title: "正在更新排序",
+        description: "正在保存新的服務排序...",
+        duration: 2000
+      });
+      
+      // 立即保存新順序
+      await saveNewOrder(newSortedItems);
+    }
+  };
+  
+  const saveNewOrder = async (items = services) => {
+    try {
+      setIsSavingOrder(true);
+      
+      // 將服務ID與順序索引映射為一個數組
+      const orderData = items.map((service, index) => ({
+        id: service.id,
+        sortOrder: index
+      }));
+      
+      const response = await fetch('/api/services/reorder', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json'
+        },
+        body: JSON.stringify({ services: orderData })
+      });
+      
+      if (!response.ok) {
+        throw new Error('保存服務順序失敗');
+      }
+      
+      toast({
+        title: "成功",
+        description: "服務順序已更新",
+        duration: 3000
+      });
+    } catch (error) {
+      console.error('保存服務順序時發生錯誤:', error);
+      toast({
+        title: "錯誤",
+        description: "保存服務順序失敗",
+        variant: "destructive"
+      });
+    } finally {
+      setIsSavingOrder(false);
+    }
   };
 
   if (isEditing) {
@@ -499,141 +728,57 @@ export default function ServicesPage() {
         ))}
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-        {getFilteredServices().map((service) => (
-          <div key={service.id} className="bg-white p-4 rounded-lg shadow">
-            <div className="flex justify-between items-start mb-2">
-              <h3 className="font-semibold text-lg">{service.name}</h3>
-              <Badge className={categoryColors[service.category]}>
-                {categoryLabels[service.category]}
-              </Badge>
+      {isEditing ? (
+        <ServiceForm
+          service={selectedService as ServiceFormData}
+          onSubmit={handleSubmit}
+          onCancel={handleCancel}
+          masseurs={masseurs}
+        />
+      ) : (
+        <>
+          {loading ? (
+            <div className="flex items-center justify-center h-64">
+              <Loader2 className="h-8 w-8 text-primary animate-spin" />
+              <span className="ml-2 text-lg">載入中...</span>
             </div>
-            
-            <p className="text-sm text-gray-600 mb-3">
-              {service.description || "無描述"}
-            </p>
-
-            {/* 時長和價格 */}
-            <div className="space-y-2 mb-3">
-              {service.durations.map((duration) => (
-                <div key={duration.id} className="flex items-center text-sm">
-                  <Clock className="w-4 h-4 mr-2 text-gray-400" />
-                  <span>{duration.duration} 分鐘 - NT${duration.price}</span>
-                </div>
-              ))}
+          ) : getFilteredServices().length === 0 ? (
+            <div className="text-center py-12 border border-dashed border-gray-300 rounded-lg">
+              <p className="text-gray-500 mb-4">目前沒有符合條件的服務</p>
             </div>
-
-            {/* 套餐項目 */}
-            {service.type === "COMBO" && service.packageItems && service.packageItems.length > 0 && (
-              <div className="mt-3">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">套餐包含：</h4>
-                <div className="space-y-2">
-                  {service.packageItems.map((item) => (
-                    <div key={item.id} className="flex items-center text-sm">
-                      <span className="text-gray-600">
-                        {item.service.name} ({item.duration}分鐘)
-                        {item.customDuration && ` - 自訂時長: ${item.customDuration}分鐘`}
-                        {item.customPrice && ` - 自訂價格: NT$${item.customPrice}`}
-                      </span>
-                    </div>
+          ) : (
+            <DndContext 
+              sensors={sensors}
+              collisionDetection={closestCenter}
+              onDragEnd={handleDragEnd}
+            >
+              <SortableContext 
+                items={sortedServices.map(s => s.id)}
+                strategy={verticalListSortingStrategy}
+              >
+                <div className="grid grid-cols-1 gap-4">
+                  {sortedServices.map((service) => (
+                    <SortableServiceCard
+                      key={service.id}
+                      service={service}
+                      userIsAdmin={userIsAdmin}
+                      onDelete={handleDelete}
+                      onEdit={handleEdit}
+                    />
                   ))}
                 </div>
-              </div>
-            )}
-
-            {/* 自定義選項 */}
-            {service.customOptions && service.customOptions.length > 0 && (
-              <div className="mt-3">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">自定義選項：</h4>
-                <div className="space-y-2">
-                  {service.customOptions.map((option) => (
-                    <div key={option.id} className="flex items-center text-sm">
-                      <span className="text-gray-600">
-                        {option.bodyPart}
-                        {option.customDuration && ` - ${option.customDuration}分鐘`}
-                        {option.customPrice && ` - NT$${option.customPrice}`}
-                      </span>
-                    </div>
-                  ))}
+              </SortableContext>
+              {isSavingOrder && (
+                <div className="fixed inset-0 bg-white/50 flex items-center justify-center z-50">
+                  <div className="bg-white p-4 rounded-lg shadow-lg flex items-center space-x-3">
+                    <Loader2 className="h-6 w-6 text-primary animate-spin" />
+                    <span className="text-gray-700 font-medium">正在保存排序...</span>
+                  </div>
                 </div>
-              </div>
-            )}
-
-            {/* 按摩師列表 */}
-            {service.masseurs && service.masseurs.length > 0 && (
-              <div className="mt-3">
-                <h4 className="text-sm font-medium text-gray-700 mb-2">提供服務的按摩師：</h4>
-                <div className="flex flex-wrap gap-2">
-                  {service.masseurs.map((masseur) => (
-                    <Badge key={masseur.id} variant="outline" className="flex items-center gap-1">
-                      {masseur.name}
-                    </Badge>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {/* 管理按鈕 */}
-            {userIsAdmin && (
-              <div className="flex justify-end gap-2 mt-4 pt-3 border-t">
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleEdit(service)}
-                  className="text-blue-600 hover:text-blue-700"
-                >
-                  <Pencil className="w-4 h-4 mr-1" /> 編輯
-                </Button>
-                <Button
-                  variant="outline"
-                  size="sm"
-                  onClick={() => handleDelete(service.id)}
-                  className="text-red-600 hover:text-red-700"
-                >
-                  <Trash2 className="w-4 h-4 mr-1" /> 刪除
-                </Button>
-              </div>
-            )}
-          </div>
-        ))}
-      </div>
-
-      {/* 編輯表單對話框 */}
-      {isEditing && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center p-4">
-          <div className="bg-white rounded-lg p-6 w-full max-w-2xl max-h-[90vh] overflow-y-auto">
-            <ServiceForm
-              service={selectedService ? {
-                ...selectedService,
-                durations: selectedService.durations || [],
-                masseurs: selectedService.masseurs.map(m => ({
-                  id: m.id || "",
-                  name: m.name
-                })),
-                customOptions: selectedService.customOptions?.map(option => ({
-                  id: option.id,
-                  bodyPart: option.bodyPart || "",
-                  customDuration: option.customDuration,
-                  customPrice: option.customPrice
-                })) || [],
-                packageItems: selectedService.packageItems?.map(item => ({
-                  id: item.id,
-                  duration: item.duration,
-                  customDuration: item.customDuration,
-                  customPrice: item.customPrice,
-                  service: {
-                    id: item.service.id,
-                    name: item.service.name,
-                    description: item.service.description || ""
-                  }
-                }))
-              } : undefined}
-              masseurs={masseurs}
-              onSubmit={handleSubmit}
-              onCancel={handleCancel}
-            />
-          </div>
-        </div>
+              )}
+            </DndContext>
+          )}
+        </>
       )}
     </div>
   );
