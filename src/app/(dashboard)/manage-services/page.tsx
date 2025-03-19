@@ -487,6 +487,10 @@ export default function ServicesPage() {
 
   const handleSubmit = async (data: any) => {
     try {
+      console.log("提交服務數據:", JSON.stringify(data, null, 2));
+      console.log("服務類型:", data.type);
+      console.log("套餐項目:", data.packageItems);
+      
       // 處理自定義選項數據
       const formattedData = {
         ...data,
@@ -509,14 +513,27 @@ export default function ServicesPage() {
       });
       
       if (!response.ok) {
-        throw new Error("Failed to save service");
+        const errorData = await response.json();
+        console.error("保存服務失敗:", errorData);
+        throw new Error(`保存服務失敗: ${errorData.error || response.statusText}`);
       }
       
       setIsEditing(false);
       setSelectedService(null);
       fetchServices();
+      
+      toast({
+        title: "成功",
+        description: formattedData.id ? "服務更新成功" : "服務創建成功",
+        duration: 3000
+      });
     } catch (error) {
-      console.error("Error saving service:", error);
+      console.error("保存服務失敗:", error);
+      toast({
+        title: "錯誤",
+        description: "保存服務失敗",
+        variant: "destructive"
+      });
     }
   };
 
@@ -664,6 +681,16 @@ export default function ServicesPage() {
         }
       : undefined;
 
+    // 準備可用於套餐的服務列表
+    // 避免選擇自己作為套餐項目，並且只允許選擇單項服務
+    const availableServicesForPackage = services
+      .filter(s => s.type === "SINGLE" && (!selectedService || s.id !== selectedService.id))
+      .map(s => ({
+        id: s.id,
+        name: s.name,
+        description: s.description || ""
+      }));
+
     return (
       <div className="container mx-auto p-6">
         <div className="flex justify-between items-center mb-6">
@@ -680,6 +707,7 @@ export default function ServicesPage() {
         <ServiceForm
           service={serviceData as ServiceFormData}
           masseurs={masseurs}
+          availableServices={availableServicesForPackage}
           onSubmit={handleSubmit}
           onCancel={handleCancel}
         />

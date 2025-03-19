@@ -218,6 +218,7 @@ interface ServiceFormProps {
   availableServices?: {
     id: string;
     name: string;
+    description?: string;
   }[];
 }
 
@@ -351,10 +352,17 @@ export function ServiceForm({
     if (serviceType === "SINGLE") {
       data.genderPrices = [];
       data.areaPrices = [];
+      data.type = "SINGLE"; // 確保設置正確的類型
     } else if (serviceType === "GENDER_PRICING") {
       data.areaPrices = [];
+      data.type = "SINGLE";
     } else if (serviceType === "AREA_PRICING") {
       data.genderPrices = [];
+      data.type = "SINGLE";
+    } else if (serviceType === "COMBO") {
+      data.genderPrices = [];
+      data.areaPrices = [];
+      data.type = "COMBO"; // 確保設置正確的類型
     }
 
     // 檢查必填字段
@@ -526,6 +534,161 @@ export function ServiceForm({
 
       {serviceType === "COMBO" && (
         <div className="space-y-6">
+          {/* 套餐服務項目管理 */}
+          <Card className="border rounded-lg p-4">
+            <CardHeader className="px-0 pt-0">
+              <CardTitle className="text-lg font-semibold">套餐服務項目</CardTitle>
+              <p className="text-sm text-gray-500">添加此套餐包含的服務項目</p>
+            </CardHeader>
+            <CardContent className="px-0 pb-0">
+              <div className="space-y-4">
+                {/* 可用服務列表，從props.availableServices中獲取 */}
+                {availableServices && availableServices.length > 0 ? (
+                  <div className="space-y-4">
+                    <div className="flex justify-between items-center">
+                      <Label>套餐包含的服務</Label>
+                      <Button
+                        type="button"
+                        variant="outline"
+                        size="sm"
+                        onClick={() => {
+                          const currentItems = form.watch("packageItems") || [];
+                          form.setValue("packageItems", [
+                            ...currentItems,
+                            {
+                              duration: 60,
+                              service: {
+                                id: availableServices[0]?.id || "",
+                                name: availableServices[0]?.name || "",
+                              }
+                            }
+                          ]);
+                        }}
+                      >
+                        <Plus className="h-4 w-4 mr-2" />
+                        添加服務項目
+                      </Button>
+                    </div>
+
+                    {(!form.watch("packageItems") || form.watch("packageItems").length === 0) && (
+                      <p className="text-sm text-gray-500 mt-2 mb-4">
+                        尚未添加套餐服務項目。點擊「添加服務項目」按鈕添加此套餐包含的服務。
+                      </p>
+                    )}
+
+                    <div className="space-y-4">
+                      {form.watch("packageItems")?.map((item, index) => (
+                        <div key={index} className="border rounded-lg p-4 relative hover:border-blue-200 transition-colors">
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="sm"
+                            className="absolute right-2 top-2 hover:bg-red-50 hover:text-red-500"
+                            onClick={() => {
+                              const currentItems = [...(form.watch("packageItems") || [])];
+                              currentItems.splice(index, 1);
+                              form.setValue("packageItems", currentItems);
+                            }}
+                          >
+                            <X className="h-4 w-4" />
+                          </Button>
+
+                          <div className="pr-8 mb-4">
+                            <Label className="text-sm font-medium">選擇服務</Label>
+                            <select
+                              value={item.service?.id || ""}
+                              onChange={(e) => {
+                                const selectedService = availableServices.find(s => s.id === e.target.value);
+                                if (!selectedService) return;
+                                
+                                const currentItems = [...(form.watch("packageItems") || [])];
+                                currentItems[index] = {
+                                  ...currentItems[index],
+                                  service: {
+                                    id: selectedService.id,
+                                    name: selectedService.name,
+                                    description: selectedService.description || ""
+                                  }
+                                };
+                                form.setValue("packageItems", currentItems);
+                              }}
+                              className="w-full mt-1.5 rounded-md border border-input bg-background px-3 py-2 text-sm"
+                            >
+                              {availableServices.map(service => (
+                                <option key={service.id} value={service.id}>
+                                  {service.name}
+                                </option>
+                              ))}
+                            </select>
+                          </div>
+
+                          <div className="grid grid-cols-3 gap-4">
+                            <div>
+                              <Label className="text-sm font-medium">基礎時長 (分鐘)</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={item.duration || 60}
+                                onChange={(e) => {
+                                  const currentItems = [...(form.watch("packageItems") || [])];
+                                  currentItems[index] = {
+                                    ...currentItems[index],
+                                    duration: parseInt(e.target.value) || 60
+                                  };
+                                  form.setValue("packageItems", currentItems);
+                                }}
+                                placeholder="基礎時長"
+                                className="mt-1.5"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-sm font-medium">自定義時長 (分鐘)</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={item.customDuration || ""}
+                                onChange={(e) => {
+                                  const currentItems = [...(form.watch("packageItems") || [])];
+                                  currentItems[index] = {
+                                    ...currentItems[index],
+                                    customDuration: e.target.value ? parseInt(e.target.value) : undefined
+                                  };
+                                  form.setValue("packageItems", currentItems);
+                                }}
+                                placeholder="可選"
+                                className="mt-1.5"
+                              />
+                            </div>
+                            <div>
+                              <Label className="text-sm font-medium">自定義價格 (NT$)</Label>
+                              <Input
+                                type="number"
+                                min="0"
+                                value={item.customPrice || ""}
+                                onChange={(e) => {
+                                  const currentItems = [...(form.watch("packageItems") || [])];
+                                  currentItems[index] = {
+                                    ...currentItems[index],
+                                    customPrice: e.target.value ? parseInt(e.target.value) : undefined
+                                  };
+                                  form.setValue("packageItems", currentItems);
+                                }}
+                                placeholder="可選"
+                                className="mt-1.5"
+                              />
+                            </div>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  </div>
+                ) : (
+                  <p className="text-sm text-gray-500">尚未添加任何可用的服務，無法創建套餐</p>
+                )}
+              </div>
+            </CardContent>
+          </Card>
+
           {/* 自定義選項卡片 */}
           <Card className="border rounded-lg p-4">
             <CardHeader className="px-0 pt-0">
