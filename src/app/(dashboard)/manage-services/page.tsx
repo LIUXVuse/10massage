@@ -275,11 +275,14 @@ function SortableServiceCard({
       {service.masseurs && service.masseurs.length > 0 && (
         <div className="mt-3 pl-8">
           <h4 className="text-sm font-medium text-gray-700 mb-2">提供服務的按摩師：</h4>
-          <div className="space-y-1">
+          <div className="flex flex-wrap gap-2">
             {service.masseurs.map((masseur) => (
-              <div key={masseur.id || masseur.masseur?.id} className="text-sm text-gray-600">
+              <span 
+                key={masseur.id || masseur.masseur?.id} 
+                className="inline-flex items-center rounded-full bg-gray-100 px-2.5 py-0.5 text-sm text-gray-600"
+              >
                 {masseur.name || masseur.masseur?.name}
-              </div>
+              </span>
             ))}
           </div>
         </div>
@@ -595,63 +598,57 @@ export default function ServicesPage() {
     const { active, over } = event;
     
     if (over && active.id !== over.id) {
-      // 先獲取移動前後的索引
-      const oldIndex = services.findIndex((item) => item.id === active.id);
-      const newIndex = services.findIndex((item) => item.id === over.id);
+      const oldIndex = sortedServices.findIndex((item) => item.id === active.id);
+      const newIndex = sortedServices.findIndex((item) => item.id === over.id);
       
       // 創建新的排序後的服務列表
-      const newSortedItems = arrayMove(services, oldIndex, newIndex);
+      const newSortedItems = arrayMove(sortedServices, oldIndex, newIndex);
       
       // 更新狀態
       setServices(newSortedItems);
       
-      toast({
-        title: "正在更新排序",
-        description: "正在保存新的服務排序...",
-        duration: 2000
-      });
-      
       // 立即保存新順序
-      await saveNewOrder(newSortedItems);
-    }
-  };
-  
-  const saveNewOrder = async (items = services) => {
-    try {
-      setIsSavingOrder(true);
-      
-      // 將服務ID與順序索引映射為一個數組
-      const orderData = items.map((service, index) => ({
-        id: service.id,
-        sortOrder: index
-      }));
-      
-      const response = await fetch('/api/services/reorder', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({ services: orderData })
-      });
-      
-      if (!response.ok) {
-        throw new Error('保存服務順序失敗');
+      try {
+        setIsSavingOrder(true);
+        
+        // 將服務ID與順序索引映射為一個數組
+        const orderData = newSortedItems.map((service, index) => ({
+          id: service.id,
+          sortOrder: index
+        }));
+        
+        const response = await fetch('/api/services/reorder', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({ services: orderData })
+        });
+        
+        if (!response.ok) {
+          throw new Error('保存服務順序失敗');
+        }
+        
+        toast({
+          title: "成功",
+          description: "服務順序已更新",
+          duration: 3000
+        });
+        
+        // 重新獲取服務列表以確保順序正確
+        await fetchServices();
+      } catch (error) {
+        console.error('保存服務順序時發生錯誤:', error);
+        toast({
+          title: "錯誤",
+          description: "保存服務順序失敗",
+          variant: "destructive"
+        });
+        // 發生錯誤時重新獲取服務列表
+        await fetchServices();
+      } finally {
+        setIsSavingOrder(false);
       }
-      
-      toast({
-        title: "成功",
-        description: "服務順序已更新",
-        duration: 3000
-      });
-    } catch (error) {
-      console.error('保存服務順序時發生錯誤:', error);
-      toast({
-        title: "錯誤",
-        description: "保存服務順序失敗",
-        variant: "destructive"
-      });
-    } finally {
-      setIsSavingOrder(false);
     }
   };
 
