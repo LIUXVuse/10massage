@@ -39,8 +39,8 @@ model Masseur {
   sortOrder    Int           @default(999)
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
-  services     Service[]     @relation("MasseurToService")
   appointments Appointment[]
+  services     Service[]     @relation("MasseurToService")
 }
 
 model Service {
@@ -53,7 +53,6 @@ model Service {
   category               String               @default("MASSAGE")
   isActive               Boolean              @default(true)
   isRecommend            Boolean              @default(false)
-  sortOrder              Int                  @default(999)
   createdAt              DateTime             @default(now())
   updatedAt              DateTime             @updatedAt
   flashSaleNote          String?
@@ -65,14 +64,15 @@ model Service {
   limitedNote            String?
   limitedSpecialPrice    Float?
   recommendOrder         Int                  @default(0)
+  sortOrder              Int                  @default(999)
+  appointments           Appointment[]
+  customOptions          CustomOption[]
   packageItems           PackageItem[]
   addons                 ServiceAddon[]
   areaPrices             ServiceAreaPrice[]
   durations              ServiceDuration[]
   genderPrices           ServiceGenderPrice[]
   masseurs               Masseur[]            @relation("MasseurToService")
-  customOptions          CustomOption[]
-  appointments           Appointment[]
 }
 
 model ServiceDuration {
@@ -82,18 +82,18 @@ model ServiceDuration {
   serviceId    String
   createdAt    DateTime      @default(now())
   updatedAt    DateTime      @updatedAt
-  service      Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
   appointments Appointment[]
+  service      Service       @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 }
 
 model ServiceGenderPrice {
   id          String   @id @default(cuid())
   gender      Gender
   price       Float
-  serviceName String?
   serviceId   String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  serviceName String?
   service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@unique([serviceId, gender])
@@ -104,10 +104,10 @@ model ServiceAreaPrice {
   areaName    String
   price       Float
   gender      Gender?
-  description String?
   serviceId   String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
+  description String?
   service     Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 
   @@unique([serviceId, areaName, gender])
@@ -143,12 +143,12 @@ model PackageItem {
   serviceId      String
   duration       Int
   isRequired     Boolean        @default(true)
-  bodyPart       String?        // 部位
-  customDuration Int?           // 自定義時長
-  customPrice    Float?         // 自定義價格
   packageId      String
   createdAt      DateTime       @default(now())
   updatedAt      DateTime       @updatedAt
+  bodyPart       String?
+  customDuration Int?
+  customPrice    Float?
   servicePackage ServicePackage @relation(fields: [packageId], references: [id], onDelete: Cascade)
   service        Service        @relation(fields: [serviceId], references: [id])
 }
@@ -176,32 +176,31 @@ model OptionItem {
 
 model CustomOption {
   id             String   @id @default(cuid())
-  bodyPart       String?  // 部位（選填）
-  customDuration Int?     // 自定義時長（選填）
-  customPrice    Float?   // 自定義價格（選填）
+  bodyPart       String?
+  customDuration Int?
+  customPrice    Float?
   serviceId      String
   createdAt      DateTime @default(now())
   updatedAt      DateTime @updatedAt
   service        Service  @relation(fields: [serviceId], references: [id], onDelete: Cascade)
 }
 
-// 預約模型
 model Appointment {
   id                String          @id @default(cuid())
   userId            String
-  user              User            @relation(fields: [userId], references: [id])
   serviceId         String
-  service           Service         @relation(fields: [serviceId], references: [id])
   serviceDurationId String
-  serviceDuration   ServiceDuration @relation(fields: [serviceDurationId], references: [id])
   masseurId         String
-  masseur           Masseur         @relation(fields: [masseurId], references: [id])
-  date              String          // YYYY-MM-DD 格式
-  time              String          // HH:MM 格式
-  status            String          @default("PENDING") // PENDING, CONFIRMED, COMPLETED, CANCELLED, NO_SHOW
+  date              String
+  time              String
+  status            String          @default("PENDING")
   notes             String?
   createdAt         DateTime        @default(now())
   updatedAt         DateTime        @updatedAt
+  masseur           Masseur         @relation(fields: [masseurId], references: [id])
+  serviceDuration   ServiceDuration @relation(fields: [serviceDurationId], references: [id])
+  service           Service         @relation(fields: [serviceId], references: [id])
+  user              User            @relation(fields: [userId], references: [id])
 
   @@index([userId])
   @@index([masseurId])
