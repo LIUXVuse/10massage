@@ -253,6 +253,7 @@ export function ServiceForm({
       genderPrices: service?.genderPrices || [],
       areaPrices: service?.areaPrices || [],
       addons: service?.addons || [],
+      packageItems: service?.packageItems || [],
     },
   });
 
@@ -570,7 +571,7 @@ export function ServiceForm({
                       </Button>
                     </div>
 
-                    {(!form.watch("packageItems") || form.watch("packageItems").length === 0) && (
+                    {(form.watch("packageItems") === undefined || form.watch("packageItems")?.length === 0) && (
                       <p className="text-sm text-gray-500 mt-2 mb-4">
                         尚未添加套餐服務項目。點擊「添加服務項目」按鈕添加此套餐包含的服務。
                       </p>

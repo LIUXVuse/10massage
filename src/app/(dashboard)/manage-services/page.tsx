@@ -296,7 +296,7 @@ function SortableServiceCard({
             {service.packageItems.map((item) => (
               <div key={item.id} className="flex items-center text-sm">
                 <span className="text-gray-600">
-                  {item.service?.name} ({item.duration}分鐘)
+                  {item.service?.name || "未知服務"} ({item.duration || 0}分鐘)
                   {item.customDuration && ` - 自訂時長: ${item.customDuration}分鐘`}
                   {item.customPrice && ` - 自訂價格: NT$${item.customPrice}`}
                 </span>
@@ -445,11 +445,11 @@ export default function ServicesPage() {
             ? service.packageItems.map((item: any) => ({
                 id: item.id || "",
                 duration: item.duration || 0,
-                customDuration: item.customDuration || undefined,
-                customPrice: item.customPrice || undefined,
+                customDuration: item.customDuration || null,
+                customPrice: item.customPrice || null,
                 service: {
-                  id: item.service?.id || "",
-                  name: item.service?.name || "",
+                  id: item.service?.id || item.serviceId || "",
+                  name: item.service?.name || "未知服務",
                   description: item.service?.description || ""
                 }
               }))
@@ -490,6 +490,15 @@ export default function ServicesPage() {
       console.log("提交服務數據:", JSON.stringify(data, null, 2));
       console.log("服務類型:", data.type);
       console.log("套餐項目:", data.packageItems);
+      
+      // 確保套餐項目有效
+      if (data.type === "COMBO" && data.packageItems) {
+        // 確保每個套餐項目有正確的服務引用
+        data.packageItems = data.packageItems.filter((item: any) => 
+          item && item.service && item.service.id && item.duration
+        );
+        console.log("過濾後的套餐項目:", data.packageItems.length);
+      }
       
       // 處理自定義選項數據
       const formattedData = {

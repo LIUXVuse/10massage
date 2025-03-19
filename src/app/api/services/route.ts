@@ -64,13 +64,13 @@ export async function GET(req: Request) {
         }
       },
       orderBy: [
-        { sortOrder: 'asc' },
-        { createdAt: 'desc' }
+        { sortOrder: 'asc' as const },
+        { createdAt: 'desc' as const }
       ]
     });
     
     // 處理返回數據，確保按摩師圖片URL正確
-    const processedServices = services.map(service => {
+    const processedServices = services.map((service: any) => {
       // 將按摩師image字段映射到imageUrl
       const masseursWithImageUrl = service.masseurs ? service.masseurs.map((masseur: any) => ({
         ...masseur,
@@ -198,22 +198,26 @@ export async function POST(request: Request) {
 
       // 為套餐服務創建套餐項目
       if (data.type === "COMBO" && data.packageItems?.length) {
-        console.log("創建套餐項目:", data.packageItems);
+        console.log("創建套餐項目數量:", data.packageItems.length);
         
-        await Promise.all(
-          data.packageItems.map((item: any) =>
-            tx.packageItem.create({
-              data: {
-                serviceId: item.service.id,
-                duration: parseInt(item.duration.toString()),
-                isRequired: true,
-                customDuration: item.customDuration ? parseInt(item.customDuration.toString()) : null,
-                customPrice: item.customPrice ? parseFloat(item.customPrice.toString()) : null,
-                packageId: service.id
-              }
-            })
-          )
-        );
+        // 過濾出有效的套餐項目數據並批量創建
+        const validPackageItems = data.packageItems
+          .filter((item: any) => item.service && item.service.id)
+          .map((item: any) => ({
+            serviceId: item.service.id,
+            duration: parseInt(item.duration.toString()),
+            isRequired: true,
+            customDuration: item.customDuration ? parseInt(item.customDuration.toString()) : null,
+            customPrice: item.customPrice ? parseFloat(item.customPrice.toString()) : null,
+            packageId: service.id
+          }));
+          
+        if (validPackageItems.length > 0) {
+          await tx.packageItem.createMany({
+            data: validPackageItems
+          });
+          console.log(`已批量創建 ${validPackageItems.length} 個套餐項目`);
+        }
       }
 
       return service;
@@ -334,10 +338,10 @@ export async function PUT(request: Request) {
         // 第四步：處理套餐項目（如果有）
         if (data.type === "COMBO" && data.packageItems && data.packageItems.length > 0) {
           // 記錄處理過程
-          console.log('處理套餐項目:', data.packageItems);
+          console.log('處理套餐項目，數量:', data.packageItems.length);
           
           // 先刪除原有的套餐項目
-          await prisma.packageItem.deleteMany({
+          await tx.packageItem.deleteMany({
             where: { 
               packageId: data.id
             }
@@ -345,30 +349,29 @@ export async function PUT(request: Request) {
           
           console.log('舊套餐項目已刪除');
           
-          // 添加新的套餐項目
-          for (const item of data.packageItems) {
-            if (!item.service || !item.service.id) {
-              console.warn('套餐項目缺少服務ID:', item);
-              continue;
-            }
-            
-            await prisma.packageItem.create({
-              data: {
-                serviceId: item.service.id,
-                duration: parseInt(item.duration.toString()),
-                isRequired: item.isRequired || true,
-                bodyPart: item.bodyPart || null,
-                customDuration: item.customDuration ? parseInt(item.customDuration.toString()) : null,
-                customPrice: item.customPrice ? parseFloat(item.customPrice.toString()) : null,
-                packageId: data.id
-              }
-            });
-          }
+          // 批量創建新的套餐項目，而不是逐個創建
+          const packageItemsToCreate = data.packageItems
+            .filter(item => item.service && item.service.id) // 過濾掉無效項
+            .map(item => ({
+              serviceId: item.service.id,
+              duration: parseInt(item.duration.toString()),
+              isRequired: item.isRequired || true,
+              bodyPart: item.bodyPart || null,
+              customDuration: item.customDuration ? parseInt(item.customDuration.toString()) : null,
+              customPrice: item.customPrice ? parseFloat(item.customPrice.toString()) : null,
+              packageId: data.id
+            }));
           
-          console.log('新套餐項目已添加');
+          if (packageItemsToCreate.length > 0) {
+            // 一次性創建所有項目
+            await tx.packageItem.createMany({
+              data: packageItemsToCreate
+            });
+            console.log(`已批量添加 ${packageItemsToCreate.length} 個套餐項目`);
+          }
         } else if (data.type !== "COMBO") {
           // 如果服務類型不是套餐，則刪除所有相關的套餐項目
-          await prisma.packageItem.deleteMany({
+          await tx.packageItem.deleteMany({
             where: { 
               packageId: data.id
             }
