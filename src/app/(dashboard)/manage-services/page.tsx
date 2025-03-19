@@ -263,13 +263,27 @@ function SortableServiceCard({
 
       {/* 時長和價格 */}
       <div className="space-y-2 mb-3 pl-8">
-        {service.durations.map((duration) => (
+        {service.durations?.map((duration) => (
           <div key={duration.id} className="flex items-center text-sm">
             <Clock className="w-4 h-4 mr-2 text-gray-400" />
             <span>{duration.duration} 分鐘 - NT${duration.price}</span>
           </div>
         ))}
       </div>
+
+      {/* 按摩師列表 */}
+      {service.masseurs && service.masseurs.length > 0 && (
+        <div className="mt-3 pl-8">
+          <h4 className="text-sm font-medium text-gray-700 mb-2">提供服務的按摩師：</h4>
+          <div className="space-y-1">
+            {service.masseurs.map((masseur) => (
+              <div key={masseur.id || masseur.masseur?.id} className="text-sm text-gray-600">
+                {masseur.name || masseur.masseur?.name}
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 套餐項目 */}
       {service.type === "COMBO" && service.packageItems && service.packageItems.length > 0 && (
@@ -279,7 +293,7 @@ function SortableServiceCard({
             {service.packageItems.map((item) => (
               <div key={item.id} className="flex items-center text-sm">
                 <span className="text-gray-600">
-                  {item.service.name} ({item.duration}分鐘)
+                  {item.service?.name} ({item.duration}分鐘)
                   {item.customDuration && ` - 自訂時長: ${item.customDuration}分鐘`}
                   {item.customPrice && ` - 自訂價格: NT$${item.customPrice}`}
                 </span>
